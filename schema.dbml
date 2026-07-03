@@ -1,0 +1,839 @@
+  Project loop_station {
+    database_type: 'MariaDB'
+    Note: 'Hệ thống thu hồi/tái chế rác của công ty: chuyển giao, sự kiện, tích điểm, giáo dục môi trường.'
+  }
+
+  // NGƯỜI DÙNG & PHÂN QUYỀN
+  Table USERS {
+    id int [pk, increment]
+    name varchar(150) [not null]
+    phone varchar(20) [unique, note: 'Dùng cho user vẫng lai đăng ký nhanh']
+    email varchar(150) [unique]
+    password_hash varchar(255) [null, note: 'NULL với tài khoản user vãng lai. User vãng lai nhận mật khẩu tạm gửi qua email']
+    avatar_url varchar(500) [null, note: 'Ảnh đại diện user. Upload lên server, lưu path tương đối']
+    must_change_password boolean [not null, default: false, note: 'true = đang dùng mật khẩu tạm, buộc đổi ở lần đăng nhập kế tiếp']
+    role varchar(20) [not null, default: 'user', note: 'user | staff | manager']
+    facility_id int [null, note: 'Cơ sở/công ty trực thuộc. Bắt buộc với role=staff và role=manager (manager là chủ 1 cơ sở, chỉ quản lý event/đơn/staff của cơ sở đó). NULL với role=user']
+    is_walk_in boolean [not null, default: false, note: 'true = tài khoản tạo tự động từ QR sự kiện']
+    status varchar(20) [not null, default: 'active', note: 'active | locked']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      role
+      facility_id
+      phone
+      email
+      deleted_at
+    }
+    Note: 'Chung 1 bảng cho cả 3 role, phân biệt bằng cột role. Bao gồm tài khoản vãng lai.'
+  }
+
+  // CƠ SỞ / ĐIỂM TIẾP NHẬN CỦA CÔNG TY
+  Table FACILITIES {
+    id int [pk, increment]
+    name varchar(200) [not null, note: 'Tên cơ sở nhận']
+    type varchar(20) [not null, note: 'station = trạm thu hồi | office = cơ sở/văn phòng công ty']
+    address varchar(300)
+    latitude decimal(10,7) [note: 'Toạ độ - lọc theo vị trí/khu vực']
+    longitude decimal(10,7)
+    image_url varchar(500)
+    status varchar(20) [not null, default: 'active', note: 'active | locked - locked ẩn khỏi Portal']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      status
+      type
+      deleted_at
+    }
+    Note: 'Cơ sở/trạm thu hồi của công ty. Đơn chuyển giao trỏ về đây.'
+  }
+
+  // ĐƠN VỊ ĐO (LOOKUP - manager QUẢN LÝ)
+  Table MEASUREMENT_UNITS {
+    id int [pk, increment]
+    name varchar(50) [not null, note: 'Tên đơn vị hiển thị']
+    symbol varchar(20) [not null, note: 'Ký hiệu đơn vị (kg, g, mg, l, ml, ...)']
+    category varchar(30) [not null, note: 'weight | volume | count']
+    is_system boolean [not null, default: true, note: 'true = đơn vị gốc do manager tạo']
+    created_by int [null, note: 'manager tạo đơn vị. NULL nếu là đơn vị gốc hệ thống']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      category
+      is_system
+      deleted_at
+    }
+    Note: 'Danh mục đơn vị đo do manager quản lý. User chỉ chọn từ danh sách có sẵn.'
+  }
+
+  // ĐƠN CHUYỂN GIAO
+  Table HANDOVER_REQUESTS {
+    id int [pk, increment]
+    user_id int [not null]
+    facility_id int [not null]
+    staff_id int [null, note: 'NULL cho tới khi manager phân công. Chỉ Staff thuộc cùng facility_id với đơn mới được phân công']
+    event_id int [null, note: 'NULL = đơn thường; có giá trị = Đơn hỏa tốc tại sự kiện']
+    classification_type varchar(50) [null, note: 'Hình thức phân loại/chuẩn bị của User: cleaned_flattened = rửa & ép dẹp | cleaned = chỉ rửa | as_is = giữ nguyên | mixed = hỗn hợp chưa phân loại']
+    estimated_weight decimal(10,2) [null, note: 'Giá trị đo ước tính của User']
+    unit_id int [null, note: 'FK => MEASUREMENT_UNITS. Đơn vị đo của estimated_weight']
+    appointment_time timestamp [null, note: 'Thời gian hẹn đến']
+    expired_at timestamp [null, note: 'Mốc auto-cancel nếu User không đến']
+    reschedule_count int [not null, default: 0, note: 'Tối đa 2, vượt sẽ tự hủy']
+    status varchar(30) [not null, default: 'pending', note: 'pending | approved | completed | rejected | cancelled | expired']
+    reject_reason varchar(500) [null, note: 'Bắt buộc khi status = rejected']
+    cancel_reason varchar(30) [null, note: 'user_cancel | staff_cancel | auto_expire | reschedule_exceeded']
+    notes text
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      (user_id, status)
+      (facility_id, appointment_time)
+      staff_id
+      event_id
+      status
+    }
+    Note: 'Bảng trung tâm nghiệp vụ. Dùng chung cho đơn thường và đơn hỏa tốc tại sự kiện (event_id != NULL).'
+  }
+
+  // LOẠI RÁC (LOOKUP - HỖ TRỢ USER TỰ THÊM)
+  Table WASTE_TYPES {
+    id int [pk, increment]
+    name varchar(100) [not null, note: 'Tên loại rác']
+    icon varchar(50) [null, note: 'Icon/emoji hiển thị (tùy chọn)']
+    is_system boolean [not null, default: true, note: 'true = Phân loại gốc do manager tạo | false = User tự thêm']
+    created_by int [null, note: 'manager/User đã thêm loại rác này. NULL nếu là phân loại gốc hệ thống']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      is_system
+      deleted_at
+    }
+    Note: 'Danh mục loại rác do manager quản lý. User chỉ chọn từ danh sách manager đã tạo (phân loại gốc). Nút "+" trong đơn hàng dùng để thêm dòng rác khác vào cùng đơn, không phải tạo loại rác mới.'
+  }
+
+  Table HANDOVER_WASTE_ITEMS {
+    id int [pk, increment]
+    request_id int [not null]
+    waste_type_id int [not null]
+    weight decimal(10,2) [not null, note: 'Giá trị đo User nhập khi tạo đơn']
+    unit_id int [not null, note: 'Đơn vị đo của weight']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      (request_id, waste_type_id) [unique]
+      waste_type_id
+    }
+    Note: 'Bảng nối N-N: 1 Đơn chuyển giao có thể chọn nhiều Loại rác từ WASTE_TYPES. User nhấn dấu "+" để thêm dòng rác khác vào cùng đơn, mỗi dòng có weight/unit_id riêng.'
+  }
+
+  // LỊCH SỬ CÂN THỰC TẾ
+  Table HANDOVER_WEIGHT_LOGS {
+    id int [pk, increment]
+    request_id int [not null]
+    weight decimal(10,2) [not null, note: 'Giá trị đo thực tế']
+    unit_id int [not null, note: 'Đơn vị đo của weight']
+    recorded_by int [not null, note: 'Staff thực hiện cân']
+    notes text [null, note: 'Ghi chú khi cân']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      request_id
+      recorded_by
+    }
+    Note: 'Tách khỏi HANDOVER_REQUESTS để hỗ trợ nhiều lần cân và audit ai cân, lúc nào.'
+  }
+
+  // SỰ KIỆN NGÀY HỘI SỐNG XANH
+  Table EVENTS {
+    id int [pk, increment]
+    title varchar(200) [not null]
+    description text
+    location varchar(300) [not null, note: 'Địa điểm tổ chức bên ngoài (trường học, công viên, khu dân cư...)']
+    qr_code varchar(100) [unique, not null, note: 'Mã QR định danh, chỉ active trong khung giờ sự kiện']
+    image_url varchar(500) [null, note: 'Ảnh poster/banner sự kiện. Upload lên server, lưu path tương đối']
+    start_time timestamp [not null]
+    end_time timestamp [not null]
+    expired_at timestamp [null]
+    status varchar(20) [not null, default: 'upcoming', note: 'upcoming | active | ended | cancelled']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      (status, start_time)
+      deleted_at
+    }
+    Note: 'Vòng đời Ngày hội sống xanh. manager tạo (ghi vào SYSTEM_LOGS), phát hành QR, phân công Staff qua bảng EVENT_STAFF_ASSIGNMENTS. Cơ sở tổ chức suy ra từ facility của manager tạo event.'
+  }
+
+  Table EVENT_STAFF_ASSIGNMENTS {
+    id int [pk, increment]
+    event_id int [not null]
+    staff_id int [not null]
+    assigned_at timestamp
+
+    indexes {
+      (event_id, staff_id) [unique]
+      staff_id
+    }
+    Note: 'Bảng nối N-N: 1 sự kiện nhiều Staff. 1 Staff được phân nhiều sự kiện nhưng KHÔNG overlap thời gian - 1 staff chỉ quản lý 1 event tại 1 thời điểm. Trigger BEFORE INSERT/UPDATE chặn overlap dựa trên EVENTS.start_time/end_time.'
+  }
+
+  Table EVENT_REWARDS {
+    id int [pk, increment]
+    event_id int [not null]
+    name varchar(150) [not null, note: 'Tên quà']
+    description text
+    quantity int [not null, default: 0, note: 'Số lượng ban đầu']
+    remaining int [not null, default: 0, note: 'Trừ dần sau mỗi lần Minigame trúng thưởng']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      event_id
+    }
+    Note: 'Quà tặng thiết lập cho mỗi sự kiện, trừ dần khi User trúng Minigame.'
+  }
+
+  Table EVENT_REGISTRATIONS {
+    id int [pk, increment]
+    event_id int [not null]
+    user_id int [not null]
+    registration_type varchar(20) [not null, note: 'visit = tham quan tìm hiểu (không nộp đồ) | handover = đăng ký nộp đồ tại event | walkin = khách vãng lai']
+    status varchar(20) [not null, default: 'registered', note: 'registered | attended | absent']
+    minigame_status varchar(20) [not null, default: 'not_eligible', note: 'not_eligible | unlocked | played']
+    checked_in_at timestamp [null, note: 'Thời điểm check-in tại sự kiện']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      (event_id, user_id) [unique]
+      user_id
+    }
+    Note: 'Ghi nhận User đăng ký sự kiện. 1 User chỉ đăng ký 1 lần/sự kiện.'
+  }
+
+  // VÍ ĐIỂM & GIAO DỊCH
+  Table USER_WALLETS {
+    id int [pk, increment]
+    user_id int [unique, not null, note: 'Quan hệ 1-1 với USERS']
+    balance int [not null, default: 0, note: 'Số điểm hiện tại']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    Note: 'Ví điểm xanh. Quan hệ 1-1 với USERS. Lưu số dư điểm hiện tại.'
+  }
+
+  Table POINT_EARNED {
+    id int [pk, increment]
+    wallet_id int [not null]
+    points int [not null, note: 'số điểm kiếm được']
+    source_type varchar(30) [not null, note: 'handover | event_minigame | content_read | manager_adjust | redemption_refund | sticker_bonus']
+    reference_id int [null, note: 'ID của handover / event_registration / content_read / redemption / sticker tương ứng. NULL với manager_adjust']
+    description varchar(300) [null, note: 'Hiển thị trong lịch sử giao dịch']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      (wallet_id, created_at)
+      (source_type, reference_id)
+    }
+    Note: 'Mỗi lần cộng điểm là 1 dòng, points luôn dương. Truy nguồn qua source_type + reference_id.'
+  }
+
+  Table POINT_SPENT {
+    id int [pk, increment]
+    wallet_id int [not null]
+    points int [not null, note: 'số điểm đã tiêu/bị trừ']
+    source_type varchar(30) [not null, note: 'redemption | manager_adjust']
+    reference_id int [null, note: 'ID của redemption tương ứng. NULL với manager_adjust']
+    description varchar(300) [null, note: 'Hiển thị trong lịch sử giao dịch']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      (wallet_id, created_at)
+      (source_type, reference_id)
+    }
+    Note: 'Mỗi lần trừ điểm là 1 dòng, points luôn dương. USER_WALLETS.balance = SUM(POINT_EARNED.points) - SUM(POINT_SPENT.points).'
+  }
+
+
+  // GIÁO DỤC MÔI TRƯỜNG
+  Table EDUCATIONAL_CONTENTS {
+    id int [pk, increment]
+    title varchar(200) [not null]
+    content text [not null, note: 'Nội dung dạng HTML (rich text). Ảnh minh họa embed trực tiếp qua thẻ <img>. Bài gốc có thể là PDF, ảnh bìa lưu ở thumbnail_url']
+    author_id int [not null, note: 'Staff soạn bài']
+    approved_by_id int [null, note: 'manager duyệt']
+    thumbnail_url varchar(500) [null, note: 'Ảnh bìa/thumbnail của bài học. NULL nếu không có']
+    status varchar(20) [not null, default: 'pending', note: 'pending | published | rejected']
+    timer_seconds int [not null, note: 'Thời gian tối thiểu đọc để nhận điểm (giây)']
+    points_reward int [not null, note: 'Điểm cộng khi đọc xong']
+    sticker_set_id int [null, note: 'Bộ sticker thưởng khi đọc xong bài. NULL = bài không có thưởng sticker']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      status
+      author_id
+      sticker_set_id
+      deleted_at
+    }
+    Note: 'Bài học giáo dục môi trường. Staff soạn → manager duyệt → Published mới hiển thị cho User.'
+  }
+
+  Table CONTENT_READS {
+    id int [pk, increment]
+    user_id int [not null]
+    content_id int [not null]
+    started_at timestamp [not null, note: 'Thời điểm bắt đầu đọc']
+    completed_at timestamp [null, note: 'NULL nếu chưa đủ Timer']
+    rewarded boolean [not null, default: false, note: 'true khi đã cộng điểm (đủ timer + còn quota ngày)']
+    read_date date [not null, note: 'Ngày đọc (local). Dùng để đếm quota ngày, reset 00:00']
+
+    indexes {
+      (user_id, read_date)
+      content_id
+    }
+    Note: 'Track mỗi lượt User đọc bài. Enforce Timer 120s, quota ngày (tối đa 10 lượt.rewarded/ngày, mỗi content tối đa 2 lượt.rewarded/ngày, reset 00:00).'
+  }
+
+
+  // STICKER SƯU TẬP (THƯỞNG VUI KHI ĐỌC BÀI)
+  Table STICKER_SETS {
+    id int [pk, increment]
+    name varchar(150) [not null, note: 'Tên bộ sưu tập (VD: Đại dương, Rừng xanh)']
+    theme varchar(100) [null, note: 'Chủ đề mô tả thêm']
+    cover_image_url varchar(500) [null, note: 'Ảnh đại diện bộ']
+    status varchar(20) [not null, default: 'active', note: 'active | locked - locked tạm ẩn, không rơi sticker từ bộ này']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      status
+      deleted_at
+    }
+    Note: 'Bộ sưu tập sticker. manager CRUD. Gắn vào EDUCATIONAL_CONTENTS.sticker_set_id để bài đọc thưởng sticker từ bộ này.'
+  }
+
+  Table STICKERS {
+    id int [pk, increment]
+    set_id int [not null, note: 'Thuộc bộ sưu tập nào']
+    name varchar(150) [not null]
+    image_url varchar(500) [not null]
+    rarity varchar(20) [not null, default: 'common', note: 'common | rare | special']
+    drop_weight int [not null, default: 1, note: 'Trọng số rơi. manager tự chỉnh tỉ lệ']
+    redeem_quantity_required int [not null, default: 1, note: 'Cần đủ bao nhiêu sticker mới đổi được 1 lần vật lý']
+    bonus_points int [not null, default: 0, note: 'Điểm tự cộng vào POINT_EARNED khi LẦN ĐẦU sở hữu loại này']
+    unlocks_content_id int [null, note: 'Mở khóa bài đặc biệt khi lần đầu sở hữu. NULL = không có']
+    status varchar(20) [not null, default: 'active', note: 'active | locked - locked tạm ẩn khỏi vòng rơi']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      set_id
+      rarity
+      unlocks_content_id
+      deleted_at
+    }
+    Note: 'Từng sticker trong 1 bộ. drop_weight quyết định tỉ lệ rơi, rarity càng cao thường bonus_points càng nhiều.'
+  }
+
+  Table USER_STICKERS {
+    id int [pk, increment]
+    user_id int [not null]
+    sticker_id int [not null]
+    quantity int [not null, default: 0, note: 'Số đang giữ (đã trừ phần đã đổi vật lý)']
+    total_obtained int [not null, default: 0, note: 'Tổng từng nhận được, không giảm khi đổi - để hiển thị thành tích']
+    first_obtained_at timestamp [note: 'Lần đầu có']
+    last_obtained_at timestamp [note: 'Lần gần nhất có thêm']
+
+    indexes {
+      (user_id, sticker_id) [unique]
+      sticker_id
+    }
+    Note: '1 dòng/user/loại sticker. Cộng dồn quantity + total_obtained khi nhận trùng.'
+  }
+
+  Table STICKER_OBTAIN_LOGS {
+    id int [pk, increment]
+    user_id int [not null]
+    sticker_id int [not null]
+    source_content_id int [null, note: 'Bài đọc đã ra sticker này. NULL nếu từ nguồn khác']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      (user_id, created_at)
+      sticker_id
+      source_content_id
+    }
+    Note: 'Lịch sử mỗi lần nhận sticker, kể cả trùng. Phục vụ tính danh hiệu theo kỳ và đối soát.'
+  }
+
+  // QUÀ ĐỔI BẰNG STICKER VẬT LÝ (manager CẤU HÌNH)
+  Table STICKER_REWARD_ITEMS {
+    id int [pk, increment]
+    name varchar(150) [not null, note: 'Tên vật phẩm (VD: Sticker dán, Kẹo, Sữa). manager tự đặt, không hardcode']
+    image_url varchar(500) [null, note: 'Ảnh vật phẩm. Upload lên server, lưu path tương đối']
+    description text [null, note: 'Mô tả vật phẩm']
+    stock int [not null, default: 0, note: 'Số lượng còn lại trong kho. manager tự chỉnh, trừ dần khi đổi']
+    status varchar(20) [not null, default: 'active', note: 'active | locked - locked tạm ngừng cho đổi']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      status
+      deleted_at
+    }
+    Note: 'Danh mục vật phẩm vật lý dùng làm quà đổi sticker. manager CRUD ảnh + tên + tồn kho. Thay cho việc hardcode "kẹo".'
+  }
+
+  Table STICKER_REWARD_RULES {
+    id int [pk, increment]
+    sticker_id int [not null, note: 'Loại sticker ảo dùng để đổi']
+    reward_item_id int [not null, note: 'Vật phẩm nhận được']
+    quantity int [not null, default: 1, note: 'Đổi 1 lần sticker này ra bao nhiêu vật phẩm (VD: x1 sticker dán, x2 kẹo, x3 sữa)']
+    status varchar(20) [not null, default: 'active', note: 'active | locked - locked tạm ngừng áp dụng rule này']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      (sticker_id, reward_item_id) [unique]
+      sticker_id
+      reward_item_id
+    }
+    Note: 'Cấu hình bó quà: 1 lần đổi sticker X ra những vật phẩm nào, mỗi thứ bao nhiêu. manager set. Đổi xong chốt snapshot sang STICKER_REDEMPTION_ITEMS.'
+  }
+
+  Table STICKER_REDEMPTIONS {
+    id int [pk, increment]
+    user_id int [not null]
+    sticker_id int [not null]
+    quantity_used int [not null, note: 'Số lượng sticker ảo đã trừ để đổi 1 lần']
+    fulfillment_method varchar(20) [not null, default: 'pickup', note: 'pickup = nhận tại cơ sở | delivery = ship tận nhà']
+    status varchar(20) [not null, default: 'pending', note: 'pending = chờ xử lý | shipping = đang giao (chỉ delivery) | fulfilled = đã giao/đã nhận | cancelled = hủy & hoàn sticker']
+    facility_id int [null, note: 'Cơ sở nhận (khi pickup). NULL khi delivery']
+    staff_id int [null, note: 'Staff xác nhận giao (pickup) hoặc đóng gói (delivery). NULL khi chưa xử lý']
+    recipient_name varchar(150) [null, note: 'Tên người nhận (khi delivery)']
+    recipient_phone varchar(20) [null, note: 'SĐT người nhận (khi delivery)']
+    shipping_address varchar(500) [null, note: 'Địa chỉ giao hàng (khi delivery)']
+    shipping_note varchar(300) [null, note: 'Ghi chú giao hàng']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      (user_id, created_at)
+      (user_id, status)
+      sticker_id
+      facility_id
+      fulfillment_method
+    }
+    Note: 'Lịch sử đổi sticker vật lý. Vật phẩm giao được chốt snapshot trong STICKER_REDEMPTION_ITEMS. Cho chọn pickup (tại cơ sở) hoặc delivery (ship tận nhà).'
+  }
+
+  Table STICKER_REDEMPTION_ITEMS {
+    id int [pk, increment]
+    redemption_id int [not null, note: 'Thuộc lần đổi nào (STICKER_REDEMPTIONS)']
+    reward_item_id int [null, note: 'Vật phẩm gốc (STICKER_REWARD_ITEMS). NULL nếu vật phẩm đã bị xóa sau này']
+    item_name varchar(150) [not null, note: 'Snapshot tên vật phẩm tại thời điểm đổi']
+    item_image_url varchar(500) [null, note: 'Snapshot ảnh vật phẩm tại thời điểm đổi']
+    quantity int [not null, note: 'Số lượng vật phẩm này đã giao (chốt theo rule lúc đổi)']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      redemption_id
+      reward_item_id
+    }
+    Note: 'Snapshot đơn: chốt chính xác các vật phẩm + số lượng đã giao trong 1 lần đổi sticker. Không đổi dù sau này rule/vật phẩm thay đổi.'
+  }
+
+
+  // DANH HIỆU THEO KỲ (VD 30 NGÀY)
+  Table TITLE_DEFINITIONS {
+    id int [pk, increment]
+    name varchar(150) [not null, note: 'Tên danh hiệu (VD: Nhà sưu tập nhí)']
+    description text [null]
+    icon_url varchar(500) [null]
+    criteria_type varchar(50) [not null, note: 'sticker_count | rare_sticker_count | content_read_count - mở rộng được, không ràng ENUM cứng']
+    threshold int [not null, note: 'Ngưỡng cần đạt trong kỳ']
+    period_days int [not null, note: 'Số ngày tính ngược để xét. manager đổi được']
+    status varchar(20) [not null, default: 'active', note: 'active | locked - locked tạm ngừng cấp danh hiệu này']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      status
+      criteria_type
+    }
+    Note: 'Định nghĩa danh hiệu. manager CRUD toàn bộ tiêu chí, ngưỡng, số ngày hiệu lực.'
+  }
+
+  Table USER_TITLES {
+    id int [pk, increment]
+    user_id int [not null]
+    title_id int [not null]
+    earned_at timestamp [note: 'Thời điểm đạt danh hiệu']
+    expires_at timestamp [note: '= earned_at + period_days, chốt tại thời điểm cấp (không đổi nếu manager sửa period_days sau)']
+
+    indexes {
+      (user_id, expires_at)
+      title_id
+    }
+    Note: 'Danh hiệu user đã/đang giữ. Hết hiệu lực khi expires_at trôi qua - lọc theo expires_at > NOW() để hiển thị, không cần job xóa.'
+  }
+
+
+  // ĐỔI QUÀ BẰNG ĐIỂM VÍ
+  Table REWARD_CATALOG {
+    id int [pk, increment]
+    name varchar(150) [not null, note: 'Tên quà']
+    description text
+    image_url varchar(500)
+    points_cost int [not null, note: 'Số điểm cần để đổi 1 phần quà']
+    stock int [not null, default: 0, note: 'Số lượng còn lại trong kho, trừ dần khi User đổi']
+    status varchar(20) [not null, default: 'active', note: 'active | locked - locked tạm ngừng cho đổi']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      status
+      deleted_at
+    }
+    Note: 'Danh mục quà đổi bằng điểm ví. Khác EVENT_REWARDS (quà minigame vật lý trong sự kiện).'
+  }
+
+  Table REDEMPTIONS {
+    id int [pk, increment]
+    user_id int [not null]
+    reward_id int [not null, note: 'Quà trong REWARD_CATALOG']
+    points_spent int [not null, note: 'Điểm đã trừ tại thời điểm đổi (chốt theo points_cost lúc đó)']
+    quantity int [not null, default: 1, note: 'Số phần quà đổi trong 1 lần']
+    status varchar(20) [not null, default: 'pending', note: 'pending = chờ nhận | shipping = đang giao (chỉ delivery) | fulfilled = đã giao | cancelled = hủy & hoàn điểm']
+    fulfillment_method varchar(20) [not null, default: 'pickup', note: 'pickup = nhận tại cơ sở | delivery = ship tận nhà']
+    recipient_name varchar(150) [null, note: 'Tên người nhận (khi delivery)']
+    recipient_phone varchar(20) [null, note: 'SĐT người nhận (khi delivery)']
+    shipping_address varchar(500) [null, note: 'Địa chỉ giao hàng (khi delivery)']
+    shipping_note varchar(300) [null, note: 'Ghi chú giao hàng']
+    transaction_id int [null, note: 'Giao dịch trừ điểm tương ứng trong POINT_SPENT']
+    fulfilled_by_id int [null, note: 'Staff/manager xác nhận giao quà']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      (user_id, status)
+      reward_id
+      transaction_id
+      fulfillment_method
+    }
+    Note: 'Lịch sử đổi quà bằng điểm ví. Mỗi lần đổi trừ điểm qua POINT_SPENT (source_type = redemption). Cho chọn pickup (tại cơ sở) hoặc delivery (ship tận nhà).'
+  }
+
+  // XÁC THỰC OTP QUA EMAIL
+  Table EMAIL_OTP_CODES {
+    id int [pk, increment]
+    email varchar(150) [not null, note: 'Email nhận OTP (không nhất thiết đã có tài khoản)']
+    user_id int [null, note: 'NULL nếu email chưa gắn tài khoản']
+    code_hash varchar(255) [not null, note: 'Hash của mã OTP, không lưu plaintext']
+    purpose varchar(20) [not null, note: 'login | password_reset | email_verify. Chỉ hỗ trợ OTP qua email, không qua SMS']
+    expires_at timestamp [not null, note: 'Hết hạn (thường 5-10 phút)']
+    consumed_at timestamp [null, note: 'Thời điểm dùng - NULL = chưa dùng']
+    attempt_count int [not null, default: 0, note: 'Số lần nhập sai, khóa khi vượt ngưỡng']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      (email, purpose)
+      expires_at
+    }
+    Note: 'Mã OTP xác thực qua email.'
+  }
+
+
+  // XÁC THỰC & PHÂN QUYỀN (AUTH + RBAC)
+  Table PERMISSIONS {
+    id int [pk, increment]
+    code varchar(100) [unique, not null, note: 'resource.action, VD: handover.create']
+    resource varchar(50) [not null, note: 'handover, event, content, ...']
+    action varchar(50) [not null, note: 'create, approve, publish, ...']
+    name varchar(150) [not null, note: 'Tên hiển thị cho manager']
+    description varchar(255) [null, note: 'Mô tả']
+    is_system boolean [not null, default: true, note: 'true = seed bởi hệ thống, false = manager thêm']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      (resource, action) [unique]
+      resource
+    }
+    Note: 'Danh mục quyền RBAC. Backend check permission code trước mỗi thao tác.'
+  }
+
+  Table ROLE_PERMISSIONS {
+    id int [pk, increment]
+    role varchar(20) [not null, note: 'user | staff | manager']
+    permission_id int [not null]
+    created_by int [null, note: 'manager cấu hình mapping']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      (role, permission_id) [unique]
+      permission_id
+      role
+      created_by
+    }
+    Note: 'Mapping role => permission.'
+  }
+
+  Table USER_SESSIONS {
+    id int [pk, increment]
+    user_id int [not null, note: 'Chủ session']
+    refresh_token_hash varchar(255) [not null, note: 'Hash của refresh token, KHÔNG lưu plaintext']
+    refresh_token_jti char(36) [unique, not null, note: 'Token ID để detect rotation/reuse']
+    device_type varchar(20) [not null, default: 'unknown', note: 'web | mobile | tablet | desktop | unknown']
+    device_name varchar(150) [null, note: 'Tên thiết bị thân thiện (VD: iPhone 15)']
+    device_os varchar(80) [null, note: 'Hệ điều hành']
+    ip_address varchar(45) [null, note: 'IPv4 / IPv6']
+    user_agent varchar(500) [null, note: 'User-Agent string']
+    issued_at timestamp [not null, note: 'Thời điểm phát hành refresh token']
+    refresh_token_expires_at timestamp [not null, note: 'Hết hạn refresh token (~60 ngày)']
+    last_activity_at timestamp [not null, note: 'Lần cuối session hoạt động (login/refresh)']
+    revoked_at timestamp [null, note: 'NULL = đang hoạt động. Có giá trị = đã revoke']
+    revoked_by_user_id int [null, note: 'manager/user revoke session']
+    revoke_reason varchar(50) [null, note: 'logout | logout_all | password_change | manager_force_logout | suspicious | token_reuse']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      (user_id, revoked_at, refresh_token_expires_at)
+      last_activity_at
+      ip_address
+      revoked_by_user_id
+    }
+    Note: 'Mỗi dòng = 1 phiên đăng nhập trên 1 thiết bị. Refresh token hash lưu ở đây, access token là JWT stateless. Session active khi revoked_at IS NULL AND refresh_token_expires_at > NOW().'
+  }
+
+  Table LOGIN_LOGS {
+    id bigint [pk, increment]
+    user_id int [null, note: 'NULL nếu email chưa có tài khoản']
+    login_identifier varchar(150) [not null, note: 'Email thử đăng nhập']
+    login_method varchar(30) [not null, note: 'password | otp | walk_in_auto_login']
+    success boolean [not null, note: 'true = đăng nhập thành công']
+    failure_reason varchar(100) [null, note: 'wrong_password | otp_expired | account_locked | user_not_found ...']
+    ip_address varchar(45) [null]
+    user_agent varchar(500) [null]
+    session_id int [null, note: 'FK => USER_SESSIONS.id. Chỉ có giá trị khi login thành công']
+    attempted_at timestamp [not null]
+    metadata_json json [null, note: 'JSON tuỳ ý: otp_purpose, event_id, ...']
+
+    indexes {
+      (user_id, attempted_at)
+      (login_identifier, attempted_at)
+      (ip_address, attempted_at)
+      (success, attempted_at)
+      session_id
+    }
+    Note: 'Audit trail mọi lần đăng nhập (thành công + thất bại). Append-only, phục vụ detect brute-force.'
+  }
+
+
+  // CẤU HÌNH ỨNG DỤNG (manager QUẢN LÝ QUA UI)
+  Table APP_SETTINGS {
+    id int [pk, increment]
+    setting_key varchar(100) [unique, not null, note: 'Khóa setting (VD: storage_base_path, upload_max_size)']
+    setting_value text [null, note: 'Giá trị setting. NULL = chưa cấu hình']
+    description varchar(300) [null, note: 'Mô tả cho manager hiểu ý nghĩa setting']
+    updated_by int [null, note: 'manager cập nhật lần cuối']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+    Note: 'Bảng key-value tập trung cho toàn bộ cấu hình manager. Mọi setting do manager chỉnh ở UI đều lưu ở đây.'
+  }
+
+
+  // AUDIT LOG
+  Table SYSTEM_LOGS {
+    id int [pk, increment]
+    entity_type varchar(30) [not null, note: 'handover | event | user | content | facility']
+    entity_id int [not null]
+    action varchar(50) [not null, note: 'create | approve | reject | reschedule | complete | cancel ...']
+    old_status varchar(30) [null]
+    new_status varchar(30) [null]
+    details text [null, note: 'JSON chi tiết payload thay đổi']
+    performed_by_user_id int [null]
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      (entity_type, entity_id)
+      performed_by_user_id
+      created_at
+    }
+    Note: 'Audit log mọi thao tác. Log được nhiều loại đối tượng qua entity_type + entity_id.'
+  }
+
+
+  // MINI GAME TƯƠNG TÁC (REAL-TIME, GIÁO VIÊN CHỦ TRÌ)
+  Table MINI_GAMES {
+    id int [pk, increment]
+    title varchar(200) [not null, note: 'Tên game (VD: Đua phân loại rác)']
+    game_type varchar(50) [not null, note: 'quiz | sorting_race | bingo | matching | wheel | guess_image ... - mở rộng được, không ràng ENUM cứng']
+    description text [null]
+    config_json json [null, note: 'Cấu hình + dữ liệu game tùy theo game_type (câu hỏi, đáp án, thời gian, hình ảnh...). Backend parse theo game_type']
+    content_id int [null, note: 'Gắn với bài học nào (EDUCATIONAL_CONTENTS). NULL = game độc lập']
+    created_by int [null, note: 'Staff/manager tạo game']
+    status varchar(20) [not null, default: 'active', note: 'active | locked - locked tạm ẩn khỏi danh sách']
+    deleted_at timestamp [null, note: 'Soft delete - NULL = còn hoạt động']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      game_type
+      content_id
+      created_by
+      status
+      deleted_at
+    }
+    Note: 'Định nghĩa mini game tương tác. game_type + config_json để thêm loại game mới không cần đổi schema. Giáo viên lồng vào bài giảng, học sinh chơi real-time trên web.'
+  }
+
+  Table GAME_SESSIONS {
+    id int [pk, increment]
+    game_id int [not null, note: 'Chơi game nào (MINI_GAMES)']
+    host_user_id int [null, note: 'Giáo viên/staff chủ trì phòng. NULL nếu chơi tự do']
+    room_code varchar(20) [not null, note: 'Mã phòng học sinh nhập để vào (VD: PIN 6 số kiểu Kahoot)']
+    status varchar(20) [not null, default: 'waiting', note: 'waiting = chờ người vào | playing = đang chơi | finished = kết thúc | cancelled = hủy']
+    points_reward int [not null, default: 0, note: 'Điểm thưởng cấu hình cho phiên này (lấy default từ APP_SETTINGS, manager/host chỉnh được)']
+    started_at timestamp [null, note: 'Thời điểm bắt đầu chơi']
+    ended_at timestamp [null, note: 'Thời điểm kết thúc']
+    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+    updated_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP']
+
+    indexes {
+      room_code [unique]
+      game_id
+      host_user_id
+      status
+    }
+    Note: '1 phiên chơi = 1 phòng. Trạng thái real-time đồng bộ qua WebSocket, DB chỉ lưu phòng + kết quả. room_code unique để học sinh join.'
+  }
+
+  Table GAME_PARTICIPANTS {
+    id int [pk, increment]
+    session_id int [not null, note: 'Thuộc phiên chơi nào (GAME_SESSIONS)']
+    user_id int [null, note: 'User đã đăng nhập. NULL nếu chơi bằng nickname (khách)']
+    nickname varchar(100) [not null, note: 'Tên hiển thị trong phòng (user hoặc khách)']
+    score int [not null, default: 0, note: 'Điểm số trong game (khác điểm ví)']
+    rank int [null, note: 'Thứ hạng chung cuộc trong phiên']
+    points_awarded int [not null, default: 0, note: 'Điểm ví thực nhận sau phiên (nếu bật thưởng). Ghi POINT_EARNED tương ứng']
+    joined_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
+
+    indexes {
+      (session_id, score)
+      session_id
+      user_id
+    }
+    Note: '1 dòng/người chơi/phiên. Bảng xếp hạng real-time sort theo score. Thưởng điểm ví qua points_awarded nếu APP_SETTINGS bật.'
+  }
+
+
+  // NOTE:
+  // QUAN HỆ (RELATIONSHIPS)
+  // > : quan hệ 1-N
+  // - : quan hệ 1-1
+
+
+  // -- USERS & FACILITIES --
+  Ref: USERS.facility_id > FACILITIES.id                              // 1 Cơ sở có N Staff trực thuộc
+  Ref: ROLE_PERMISSIONS.permission_id > PERMISSIONS.id                // Mapping role-permission
+  Ref: ROLE_PERMISSIONS.created_by > USERS.id                         // manager cấu hình quyền
+  Ref: USER_SESSIONS.user_id > USERS.id                               // 1 User có N session
+  Ref: USER_SESSIONS.revoked_by_user_id > USERS.id                    // 1 User/manager revoke N session
+  Ref: LOGIN_LOGS.user_id > USERS.id                                  // 1 User có N log đăng nhập
+  Ref: LOGIN_LOGS.session_id > USER_SESSIONS.id                       // 1 Session có thể gắn N log
+  Ref: MEASUREMENT_UNITS.created_by > USERS.id                        // 1 User/manager có thể tạo N Đơn vị đo
+  Ref: HANDOVER_WASTE_ITEMS.unit_id > MEASUREMENT_UNITS.id             // 1 Đơn vị đo được dùng cho N Dòng rác
+  Ref: HANDOVER_WEIGHT_LOGS.unit_id > MEASUREMENT_UNITS.id             // 1 Đơn vị đo được dùng cho N Lần cân
+
+  // -- HANDOVER_REQUESTS --
+  Ref: HANDOVER_REQUESTS.user_id > USERS.id                           // 1 User có N Đơn
+  Ref: HANDOVER_REQUESTS.facility_id > FACILITIES.id                  // 1 Cơ sở nhận N Đơn
+  Ref: HANDOVER_REQUESTS.staff_id > USERS.id                          // 1 Staff xử lý N Đơn
+  Ref: HANDOVER_REQUESTS.event_id > EVENTS.id                         // 1 Sự kiện có N Đơn hỏa tốc
+  Ref: HANDOVER_REQUESTS.unit_id > MEASUREMENT_UNITS.id               // 1 Đơn vị đo của estimated_weight
+
+  // -- LOẠI RÁC & CÂN THỰC TẾ --
+  Ref: WASTE_TYPES.created_by > USERS.id                              // 1 User thêm N Loại rác tùy chỉnh
+  Ref: HANDOVER_WASTE_ITEMS.request_id > HANDOVER_REQUESTS.id         // 1 Đơn có N Loại rác được chọn
+  Ref: HANDOVER_WASTE_ITEMS.waste_type_id > WASTE_TYPES.id            // 1 Loại rác thuộc N Đơn
+  Ref: HANDOVER_WEIGHT_LOGS.request_id > HANDOVER_REQUESTS.id         // 1 Đơn có N Lần cân
+  Ref: HANDOVER_WEIGHT_LOGS.recorded_by > USERS.id                    // 1 Staff cân N Lần
+
+  // -- EVENTS --
+  // manager tạo event được ghi trong SYSTEM_LOGS (entity_type = 'event', action = 'create'), không lưu trực tiếp trên EVENTS
+  Ref: EVENT_STAFF_ASSIGNMENTS.event_id > EVENTS.id                   // Phân công Staff cho Sự kiện
+  Ref: EVENT_STAFF_ASSIGNMENTS.staff_id > USERS.id                    // 1 Staff được phân N sự kiện
+  Ref: EVENT_REWARDS.event_id > EVENTS.id                             // 1 Sự kiện có N Quà
+
+  // -- EVENT_REGISTRATIONS --
+  Ref: EVENT_REGISTRATIONS.event_id > EVENTS.id                       // 1 Sự kiện có N Đăng ký
+  Ref: EVENT_REGISTRATIONS.user_id > USERS.id                         // 1 User đăng ký N Sự kiện
+
+  // -- VÍ & GIAO DỊCH --
+  Ref: USER_WALLETS.user_id - USERS.id                                // 1 User có đúng 1 Ví (1-1)
+  Ref: POINT_EARNED.wallet_id > USER_WALLETS.id                       // 1 Ví có N Giao dịch cộng điểm
+  Ref: POINT_SPENT.wallet_id > USER_WALLETS.id                        // 1 Ví có N Giao dịch trừ điểm
+
+  // -- GIÁO DỤC --
+  Ref: EDUCATIONAL_CONTENTS.author_id > USERS.id                      // 1 Staff soạn N Bài
+  Ref: EDUCATIONAL_CONTENTS.approved_by_id > USERS.id                 // 1 manager duyệt N Bài
+  Ref: EDUCATIONAL_CONTENTS.sticker_set_id > STICKER_SETS.id          // 1 Bộ sticker gắn cho N Bài
+  Ref: CONTENT_READS.user_id > USERS.id                               // 1 User đọc N Lần
+  Ref: CONTENT_READS.content_id > EDUCATIONAL_CONTENTS.id             // 1 Bài có N Lượt đọc
+
+  // -- STICKER SƯU TẬP --
+  Ref: STICKERS.set_id > STICKER_SETS.id                              // 1 Bộ có N Sticker
+  Ref: STICKERS.unlocks_content_id > EDUCATIONAL_CONTENTS.id          // 1 Sticker mở khóa 1 Bài đặc biệt
+  Ref: USER_STICKERS.user_id > USERS.id                               // 1 User giữ N loại Sticker
+  Ref: USER_STICKERS.sticker_id > STICKERS.id                         // 1 Sticker được N User giữ
+  Ref: STICKER_OBTAIN_LOGS.user_id > USERS.id                         // 1 User có N lần nhận Sticker
+  Ref: STICKER_OBTAIN_LOGS.sticker_id > STICKERS.id                   // 1 Sticker được nhận N lần
+  Ref: STICKER_OBTAIN_LOGS.source_content_id > EDUCATIONAL_CONTENTS.id // 1 Bài ra N lần Sticker
+  Ref: STICKER_REDEMPTIONS.user_id > USERS.id                         // 1 User đổi N lần vật lý
+  Ref: STICKER_REDEMPTIONS.sticker_id > STICKERS.id                   // 1 Sticker được đổi N lần
+  Ref: STICKER_REDEMPTIONS.facility_id > FACILITIES.id                // 1 Cơ sở nhận N lần đổi (khi pickup)
+  Ref: STICKER_REDEMPTIONS.staff_id > USERS.id                        // 1 Staff xác nhận N lần đổi
+
+  // -- QUÀ ĐỔI BẰNG STICKER VẬT LÝ --
+  Ref: STICKER_REWARD_RULES.sticker_id > STICKERS.id                  // 1 Sticker có N rule bó quà
+  Ref: STICKER_REWARD_RULES.reward_item_id > STICKER_REWARD_ITEMS.id  // 1 Vật phẩm dùng trong N rule
+  Ref: STICKER_REDEMPTION_ITEMS.redemption_id > STICKER_REDEMPTIONS.id // 1 Lần đổi gồm N vật phẩm (snapshot)
+  Ref: STICKER_REDEMPTION_ITEMS.reward_item_id > STICKER_REWARD_ITEMS.id // 1 Vật phẩm xuất hiện trong N snapshot
+
+  // -- DANH HIỆU THEO KỲ --
+  Ref: USER_TITLES.user_id > USERS.id                                 // 1 User giữ N Danh hiệu
+  Ref: USER_TITLES.title_id > TITLE_DEFINITIONS.id                    // 1 Danh hiệu cấp cho N User
+
+  // -- ĐỔI QUÀ BẰNG ĐIỂM --
+  Ref: REDEMPTIONS.user_id > USERS.id                                 // 1 User đổi N lần
+  Ref: REDEMPTIONS.reward_id > REWARD_CATALOG.id                      // 1 Quà được đổi N lần
+  Ref: REDEMPTIONS.transaction_id > POINT_SPENT.id                    // 1 Lần đổi gắn 1 giao dịch trừ điểm
+  Ref: REDEMPTIONS.fulfilled_by_id > USERS.id                         // 1 Staff/manager giao N lần
+
+  // -- MINI GAME TƯƠNG TÁC --
+  Ref: MINI_GAMES.content_id > EDUCATIONAL_CONTENTS.id                // 1 Bài gắn N game
+  Ref: MINI_GAMES.created_by > USERS.id                              // 1 Staff/manager tạo N game
+  Ref: GAME_SESSIONS.game_id > MINI_GAMES.id                          // 1 Game có N phiên chơi
+  Ref: GAME_SESSIONS.host_user_id > USERS.id                          // 1 Giáo viên chủ trì N phiên
+  Ref: GAME_PARTICIPANTS.session_id > GAME_SESSIONS.id                // 1 Phiên có N người chơi
+  Ref: GAME_PARTICIPANTS.user_id > USERS.id                           // 1 User tham gia N phiên
+
+  // -- XÁC THỰC EMAIL OTP --
+  Ref: EMAIL_OTP_CODES.user_id > USERS.id                             // 1 User có N mã OTP
+
+  // -- AUDIT LOG --
+  Ref: APP_SETTINGS.updated_by > USERS.id                             // 1 manager cập nhật N setting
+  Ref: SYSTEM_LOGS.performed_by_user_id > USERS.id                    // 1 User thực hiện N Log
