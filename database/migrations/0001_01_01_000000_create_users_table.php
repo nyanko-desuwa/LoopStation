@@ -18,11 +18,11 @@ return new class extends Migration
             $table->string('email', 150)->unique()->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password')->nullable()
-                ->comment('Hash mật khẩu. NULL với tài khoản walk-in tự sinh');
+                ->comment('Hash mật khẩu. NULL với tài khoản walk-in');
             $table->rememberToken();
             $table->string('avatar_url', 500)->nullable();
             $table->boolean('must_change_password')->default(false)
-                ->comment('true = đang dùng mật khẩu tạm, buộc đổi lần đăng nhập kế');
+                ->comment('true = Tạm dùng mật khẩu tạm, buộc đổi lần đăng nhập kế');
             $table->enum('role', ['user', 'staff', 'manager'])->default('user');
             $table->unsignedBigInteger('facility_id')->nullable()
                 ->comment('Cơ sở trực thuộc. Bắt buộc với staff/manager. NULL với user');

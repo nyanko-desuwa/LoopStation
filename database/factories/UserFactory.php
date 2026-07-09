@@ -7,21 +7,11 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-/**
- * @extends Factory<User>
- */
 class UserFactory extends Factory
 {
-    /**
-     * Mật khẩu dùng chung cho các user sinh ra từ factory, hash 1 lần rồi tái dùng.
-     */
+    // hash chung, dùng lại cho mọi user sinh ra từ factory
     protected static ?string $password;
 
-    /**
-     * User mặc định: khách hàng thường (role = user), không gắn cơ sở.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
@@ -40,9 +30,7 @@ class UserFactory extends Factory
         ];
     }
 
-    /**
-     * Chưa xác minh email.
-     */
+    // chưa xác minh email
     public function unverified(): static
     {
         return $this->state(fn (array $attributes) => [
@@ -50,9 +38,7 @@ class UserFactory extends Factory
         ]);
     }
 
-    /**
-     * Nhân viên thuộc một cơ sở.
-     */
+    // nhân viên thuộc 1 cơ sở
     public function staff(?int $facilityId = null): static
     {
         return $this->state(fn (array $attributes) => [
@@ -61,9 +47,7 @@ class UserFactory extends Factory
         ]);
     }
 
-    /**
-     * Quản lý cơ sở.
-     */
+    // quản lý cơ sở
     public function manager(?int $facilityId = null): static
     {
         return $this->state(fn (array $attributes) => [
@@ -72,10 +56,7 @@ class UserFactory extends Factory
         ]);
     }
 
-    /**
-     * Tài khoản vãng lai tạo tự động khi quét QR sự kiện: dùng mật khẩu tạm,
-     * buộc đổi ở lần đăng nhập sau.
-     */
+    // tài khoản vãng lai từ QR sự kiện, dùng mật khẩu tạm, buộc đổi sau
     public function walkIn(): static
     {
         return $this->state(fn (array $attributes) => [
@@ -84,9 +65,7 @@ class UserFactory extends Factory
         ]);
     }
 
-    /**
-     * Tài khoản bị khóa.
-     */
+    // tài khoản bị khóa
     public function locked(): static
     {
         return $this->state(fn (array $attributes) => [
