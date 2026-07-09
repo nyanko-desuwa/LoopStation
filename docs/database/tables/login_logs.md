@@ -11,14 +11,14 @@ Ghi lại mọi lần đăng nhập, cả thành công lẫn thất bại. Appen
 | `id` | bigint | NOT NULL | auto_increment | PK (bigint vì lượng ghi lớn) |
 | `user_id` | int | NULL | - | FK → USERS. NULL nếu email chưa có tài khoản |
 | `login_identifier` | varchar(150) | NOT NULL | - | Email thử đăng nhập |
-| `login_method` | varchar(30) | NOT NULL | - | `password` \| `otp` \| `walk_in_auto_login` |
+| `login_method` | varchar(30) | NOT NULL | - | `password` \| `walk_in_auto_login` |
 | `success` | boolean | NOT NULL | - | true = đăng nhập thành công |
-| `failure_reason` | varchar(100) | NULL | - | `wrong_password` \| `otp_expired` \| `account_locked` \| `user_not_found` ... |
+| `failure_reason` | varchar(100) | NULL | - | `wrong_password` \| `account_locked` \| `user_not_found` \| `must_change_password` ... |
 | `ip_address` | varchar(45) | NULL | - | IPv4 / IPv6 |
 | `user_agent` | varchar(500) | NULL | - | User-Agent string |
 | `session_id` | int | NULL | - | FK → USER_SESSIONS. Chỉ có giá trị khi login thành công |
 | `attempted_at` | timestamp | NOT NULL | - | Thời điểm thử đăng nhập |
-| `metadata_json` | json | NULL | - | JSON tuỳ ý: `otp_purpose`, `event_id`, ... |
+| `metadata_json` | json | NULL | - | JSON tuỳ ý: `event_id`, `device_info`, ... |
 
 ## Quan hệ khóa ngoại
 

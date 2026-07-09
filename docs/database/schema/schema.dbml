@@ -9,7 +9,9 @@
     name varchar(150) [not null]
     phone varchar(20) [unique, note: 'Dùng cho user vẫng lai đăng ký nhanh']
     email varchar(150) [unique]
-    password_hash varchar(255) [null, note: 'NULL với tài khoản user vãng lai. User vãng lai nhận mật khẩu tạm gửi qua email']
+    email_verified_at timestamp [null, note: 'Chuẩn Laravel. Thời điểm email được xác minh (qua link xác minh của Laravel). NULL = chưa xác minh']
+    password varchar(255) [null, note: 'Hash mật khẩu (cột chuẩn Laravel, dùng Auth). NULL với tài khoản user vãng lai. User vãng lai nhận mật khẩu tạm gửi qua email']
+    remember_token varchar(100) [null, note: 'Chuẩn Laravel "remember me". Token duy trì đăng nhập cho web guard']
     avatar_url varchar(500) [null, note: 'Ảnh đại diện user. Upload lên server, lưu path tương đối']
     must_change_password boolean [not null, default: false, note: 'true = đang dùng mật khẩu tạm, buộc đổi ở lần đăng nhập kế tiếp']
     role varchar(20) [not null, default: 'user', note: 'user | staff | manager']
@@ -27,7 +29,31 @@
       email
       deleted_at
     }
-    Note: 'Chung 1 bảng cho cả 3 role, phân biệt bằng cột role. Bao gồm tài khoản vãng lai.'
+    Note: 'Chung 1 bảng cho cả 3 role, phân biệt bằng cột role. Bao gồm tài khoản vãng lai. Tương thích Auth Laravel: dùng cột password + email_verified_at + remember_token chuẩn framework.'
+  }
+
+  // BẢNG FRAMEWORK LARAVEL (auth mặc định)
+  Table PASSWORD_RESET_TOKENS {
+    email varchar(150) [pk, note: 'Email yêu cầu reset - PK. Chuẩn Laravel: mỗi email chỉ giữ token reset mới nhất']
+    token varchar(255) [not null, note: 'Hash token reset gửi qua link "quên mật khẩu" của Laravel']
+    created_at timestamp [null, note: 'Thời điểm phát hành token, dùng để tính hết hạn (config auth.passwords.*.expire)']
+
+    Note: 'Bảng chuẩn Laravel cho luồng reset mật khẩu bằng link (Password Broker). Đây là kênh reset mật khẩu duy nhất của hệ thống: user nhập email, nhận link chứa token, đặt lại mật khẩu qua link. Không dùng OTP.'
+  }
+
+  Table SESSIONS {
+    id varchar(255) [pk, note: 'Session ID chuẩn Laravel - PK']
+    user_id int [null, note: 'FK => USERS. NULL với khách chưa đăng nhập']
+    ip_address varchar(45) [null, note: 'IPv4 / IPv6']
+    user_agent text [null, note: 'User-Agent string']
+    payload longtext [not null, note: 'Dữ liệu session đã serialize (Laravel quản lý)']
+    last_activity int [not null, note: 'Unix timestamp lần hoạt động cuối - dùng để dọn session hết hạn']
+
+    indexes {
+      user_id
+      last_activity
+    }
+    Note: 'Bảng chuẩn Laravel cho session driver = database (web guard, CSRF, flash data). Khác USER_SESSIONS (kho refresh token JWT cho API đa thiết bị). Hai bảng phục vụ 2 tầng khác nhau: SESSIONS cho web session state, USER_SESSIONS cho API token.'
   }
 
   // CƠ SỞ / ĐIỂM TIẾP NHẬN CỦA CÔNG TY
@@ -536,26 +562,6 @@
     Note: 'Lịch sử đổi quà bằng điểm ví. Mỗi lần đổi trừ điểm qua POINT_SPENT (source_type = redemption). Cho chọn pickup (tại cơ sở) hoặc delivery (ship tận nhà).'
   }
 
-  // XÁC THỰC OTP QUA EMAIL
-  Table EMAIL_OTP_CODES {
-    id int [pk, increment]
-    email varchar(150) [not null, note: 'Email nhận OTP (không nhất thiết đã có tài khoản)']
-    user_id int [null, note: 'NULL nếu email chưa gắn tài khoản']
-    code_hash varchar(255) [not null, note: 'Hash của mã OTP, không lưu plaintext']
-    purpose varchar(20) [not null, note: 'login | password_reset | email_verify. Chỉ hỗ trợ OTP qua email, không qua SMS']
-    expires_at timestamp [not null, note: 'Hết hạn (thường 5-10 phút)']
-    consumed_at timestamp [null, note: 'Thời điểm dùng - NULL = chưa dùng']
-    attempt_count int [not null, default: 0, note: 'Số lần nhập sai, khóa khi vượt ngưỡng']
-    created_at timestamp [not null, note: 'DEFAULT CURRENT_TIMESTAMP']
-
-    indexes {
-      (email, purpose)
-      expires_at
-    }
-    Note: 'Mã OTP xác thực qua email.'
-  }
-
-
   // XÁC THỰC & PHÂN QUYỀN (AUTH + RBAC)
   Table PERMISSIONS {
     id int [pk, increment]
@@ -623,7 +629,7 @@
     id bigint [pk, increment]
     user_id int [null, note: 'NULL nếu email chưa có tài khoản']
     login_identifier varchar(150) [not null, note: 'Email thử đăng nhập']
-    login_method varchar(30) [not null, note: 'password | otp | walk_in_auto_login']
+    login_method varchar(30) [not null, note: 'password | walk_in_auto_login']
     success boolean [not null, note: 'true = đăng nhập thành công']
     failure_reason varchar(100) [null, note: 'wrong_password | otp_expired | account_locked | user_not_found ...']
     ip_address varchar(45) [null]
@@ -748,6 +754,7 @@
 
   // -- USERS & FACILITIES --
   Ref: USERS.facility_id > FACILITIES.id                              // 1 Cơ sở có N Staff trực thuộc
+  Ref: SESSIONS.user_id > USERS.id                                    // 1 User có N session web (Laravel)
   Ref: ROLE_PERMISSIONS.permission_id > PERMISSIONS.id                // Mapping role-permission
   Ref: ROLE_PERMISSIONS.created_by > USERS.id                         // manager cấu hình quyền
   Ref: USER_SESSIONS.user_id > USERS.id                               // 1 User có N session
@@ -830,9 +837,6 @@
   Ref: GAME_SESSIONS.host_user_id > USERS.id                          // 1 Giáo viên chủ trì N phiên
   Ref: GAME_PARTICIPANTS.session_id > GAME_SESSIONS.id                // 1 Phiên có N người chơi
   Ref: GAME_PARTICIPANTS.user_id > USERS.id                           // 1 User tham gia N phiên
-
-  // -- XÁC THỰC EMAIL OTP --
-  Ref: EMAIL_OTP_CODES.user_id > USERS.id                             // 1 User có N mã OTP
 
   // -- AUDIT LOG --
   Ref: APP_SETTINGS.updated_by > USERS.id                             // 1 manager cập nhật N setting

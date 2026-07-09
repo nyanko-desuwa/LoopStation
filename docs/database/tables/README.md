@@ -12,9 +12,10 @@ Nguồn schema: [schema.dbml](../schema/schema.dbml) • DDL deploy: [schema.sql
 | [USERS](users.md) | Tài khoản 3 role (user/staff/manager) + tài khoản vãng lai |
 | [PERMISSIONS](permissions.md) | Danh mục quyền RBAC |
 | [ROLE_PERMISSIONS](role_permissions.md) | Mapping role → quyền |
-| [USER_SESSIONS](user_sessions.md) | Phiên đăng nhập trên từng thiết bị |
+| [USER_SESSIONS](user_sessions.md) | Phiên đăng nhập API/JWT trên từng thiết bị |
+| [SESSIONS](sessions.md) | Session web chuẩn Laravel (session driver = database) |
 | [LOGIN_LOGS](login_logs.md) | Audit trail mọi lần đăng nhập |
-| [EMAIL_OTP_CODES](email_otp_codes.md) | Mã OTP xác thực qua email |
+| [PASSWORD_RESET_TOKENS](password_reset_tokens.md) | Token reset mật khẩu bằng link (Laravel Password Broker) |
 
 ### Cơ sở & thu hồi rác
 | Bảng | Vai trò |

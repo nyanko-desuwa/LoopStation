@@ -68,14 +68,14 @@ CREATE TABLE `LOGIN_LOGS` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `user_id` INT DEFAULT NULL COMMENT 'Resolved user if known',
   `login_identifier` VARCHAR(150) NOT NULL COMMENT 'Email/phone/username used in login',
-  `login_method` ENUM('password', 'otp', 'walk_in_auto_login') NOT NULL COMMENT 'Authentication method used',
+  `login_method` ENUM('password', 'walk_in_auto_login') NOT NULL COMMENT 'Authentication method used',
   `success` TINYINT(1) NOT NULL COMMENT '1 = success, 0 = failure',
-  `failure_reason` VARCHAR(100) DEFAULT NULL COMMENT 'invalid_credentials, otp_expired, account_locked, user_not_found, etc.',
+  `failure_reason` VARCHAR(100) DEFAULT NULL COMMENT 'invalid_credentials, account_locked, user_not_found, must_change_password, etc.',
   `ip_address` VARCHAR(45) DEFAULT NULL COMMENT 'IPv4 or IPv6',
   `user_agent` VARCHAR(500) DEFAULT NULL COMMENT 'Raw user-agent string',
   `session_id` INT DEFAULT NULL COMMENT 'Created session if login succeeded',
   `attempted_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `metadata_json` JSON DEFAULT NULL COMMENT 'Optional extra metadata like otp purpose or event_id',
+  `metadata_json` JSON DEFAULT NULL COMMENT 'Optional extra metadata like event_id or device_info',
   PRIMARY KEY (`id`),
   KEY `idx_login_logs_user_time` (`user_id`, `attempted_at`),
   KEY `idx_login_logs_identifier_time` (`login_identifier`, `attempted_at`),
@@ -124,9 +124,11 @@ CREATE TABLE `USERS` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(150) NOT NULL,
   `phone` VARCHAR(20) UNIQUE COMMENT 'SĐT liên hệ (tùy chọn), không dùng cho xác thực',
-  `email` VARCHAR(150) UNIQUE COMMENT 'Email đăng nhập và nhận OTP - kênh xác thực chính, kể cả user vãng lai',
-  `password_hash` VARCHAR(255) DEFAULT NULL COMMENT 'NULL với tài khoản Walk-in tự sinh. Walk-in nhận mật khẩu tạm gửi qua email',
+  `email` VARCHAR(150) UNIQUE COMMENT 'Email đăng nhập và nhận thông báo - kênh liên lạc chính, kể cả user vãng lai',
+  `email_verified_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'Thời điểm email xác minh qua link của Laravel. NULL = chưa xác minh',
+  `password` VARCHAR(255) DEFAULT NULL COMMENT 'Hash mật khẩu (chuẩn Laravel Auth). NULL với tài khoản Walk-in tự sinh. Walk-in nhận mật khẩu tạm gửi qua email',
   `avatar_url` VARCHAR(500) DEFAULT NULL COMMENT 'Ảnh đại diện user',
+  `remember_token` VARCHAR(100) DEFAULT NULL COMMENT 'Token "remember me" chuẩn Laravel Auth',
   `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = đang dùng mật khẩu tạm, buộc đổi ở lần đăng nhập kế tiếp',
   `role` ENUM('user', 'staff', 'manager') NOT NULL DEFAULT 'user',
   `facility_id` INT DEFAULT NULL COMMENT 'Cơ sở trực thuộc. Bắt buộc với staff và manager (manager là chủ cơ sở, chỉ quản lý event/đơn/staff cùng cơ sở). NULL với role=user',
@@ -142,7 +144,30 @@ CREATE TABLE `USERS` (
   INDEX `idx_users_email` (`email`),
   INDEX `idx_users_deleted` (`deleted_at`),
   CONSTRAINT `fk_users_facility` FOREIGN KEY (`facility_id`) REFERENCES `FACILITIES` (`id`) ON DELETE SET NULL
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'Người dùng: User, Staff, manager';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'Người dùng: User, Staff, manager (tương thích Auth Laravel: password + email_verified_at + remember_token)';
+
+
+--TABLE PASSWORD_RESET_TOKENS (Bảng chuẩn Laravel - reset mật khẩu bằng link)
+CREATE TABLE `PASSWORD_RESET_TOKENS` (
+  `email` VARCHAR(150) NOT NULL COMMENT 'Email yêu cầu reset - PK. Mỗi email chỉ giữ token mới nhất',
+  `token` VARCHAR(255) NOT NULL COMMENT 'Hash token reset gửi qua link quên mật khẩu',
+  `created_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'Thời điểm phát hành token, dùng tính hết hạn',
+  PRIMARY KEY (`email`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'Bảng chuẩn Laravel cho Password Broker (reset mật khẩu bằng link). Kênh reset mật khẩu duy nhất của hệ thống';
+
+
+--TABLE SESSIONS (Bảng chuẩn Laravel - session driver = database)
+CREATE TABLE `SESSIONS` (
+  `id` VARCHAR(255) NOT NULL COMMENT 'Session ID chuẩn Laravel - PK',
+  `user_id` INT DEFAULT NULL COMMENT 'FK => USERS. NULL với khách chưa đăng nhập',
+  `ip_address` VARCHAR(45) DEFAULT NULL COMMENT 'IPv4 / IPv6',
+  `user_agent` TEXT DEFAULT NULL COMMENT 'User-Agent string',
+  `payload` LONGTEXT NOT NULL COMMENT 'Dữ liệu session đã serialize (Laravel quản lý)',
+  `last_activity` INT NOT NULL COMMENT 'Unix timestamp lần hoạt động cuối',
+  PRIMARY KEY (`id`),
+  KEY `idx_sessions_user` (`user_id`),
+  KEY `idx_sessions_last_activity` (`last_activity`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'Bảng chuẩn Laravel cho session driver database (web guard). Khác USER_SESSIONS (kho refresh token JWT cho API đa thiết bị)';
 
 
 CREATE TABLE `EVENTS` (
@@ -705,24 +730,6 @@ CREATE TABLE `REDEMPTIONS` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'Lịch sử đổi quà bằng điểm ví';
 
 
---TABLE EMAIL_OTP_CODES (Mã OTP gửi qua email)
-CREATE TABLE `EMAIL_OTP_CODES` (
-  `id` INT NOT NULL AUTO_INCREMENT,
-  `email` VARCHAR(150) NOT NULL COMMENT 'Email nhận OTP (không nhất thiết đã có tài khoản)',
-  `user_id` INT DEFAULT NULL COMMENT 'NULL nếu email chưa gắn tài khoản',
-  `code_hash` VARCHAR(255) NOT NULL COMMENT 'Hash của mã OTP, không lưu plaintext',
-  `purpose` ENUM('login', 'password_reset', 'email_verify') NOT NULL COMMENT 'Chỉ hỗ trợ OTP qua email, không qua SMS',
-  `expires_at` TIMESTAMP NOT NULL COMMENT 'Hết hạn (thường 5-10 phút)',
-  `consumed_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'Thời điểm dùng - NULL = chưa dùng',
-  `attempt_count` INT NOT NULL DEFAULT 0 COMMENT 'Số lần nhập sai, khóa khi vượt ngưỡng',
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `idx_otp_email_purpose` (`email`, `purpose`),
-  INDEX `idx_otp_expires` (`expires_at`),
-  CONSTRAINT `fk_otp_user` FOREIGN KEY (`user_id`) REFERENCES `USERS` (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'Mã OTP xác thực qua email';
-
-
 --TABLE SYSTEM_LOGS (Audit log)
 CREATE TABLE `SYSTEM_LOGS` (
   `id` INT NOT NULL AUTO_INCREMENT,
@@ -813,9 +820,8 @@ INSERT INTO `PERMISSIONS` (`code`, `resource`, `action`, `name`, `description`, 
 ('auth.refresh', 'auth', 'refresh', 'Gia hạn phiên', 'Lấy access token mới bằng refresh token', 1),
 ('auth.change_password', 'auth', 'change_password', 'Đổi mật khẩu', 'Đổi mật khẩu tài khoản', 1),
 ('auth.request_password_reset', 'auth', 'request_password_reset', 'Yêu cầu reset mật khẩu', 'Gửi yêu cầu đặt lại mật khẩu', 1),
-('auth.reset_password', 'auth', 'reset_password', 'Reset mật khẩu', 'Đặt lại mật khẩu bằng link/OTP', 1),
-('auth.request_email_otp', 'auth', 'request_email_otp', 'Gửi OTP email', 'Yêu cầu gửi mã OTP qua email', 1),
-('auth.verify_email_otp', 'auth', 'verify_email_otp', 'Xác thực OTP email', 'Xác thực mã OTP qua email', 1),
+('auth.reset_password', 'auth', 'reset_password', 'Reset mật khẩu', 'Đặt lại mật khẩu bằng link (Laravel Password Broker)', 1),
+('auth.verify_email', 'auth', 'verify_email', 'Xác minh email', 'Xác minh email qua link (Laravel MustVerifyEmail)', 1),
 ('auth.view_own_sessions', 'auth', 'view_own_sessions', 'Xem phiên đăng nhập', 'Xem danh sách thiết bị đang đăng nhập', 1),
 ('auth.revoke_own_session', 'auth', 'revoke_own_session', 'Thu hồi phiên của mình', 'Đăng xuất 1 thiết bị', 1),
 ('auth.revoke_all_sessions', 'auth', 'revoke_all_sessions', 'Thu hồi mọi phiên', 'Đăng xuất tất cả thiết bị của mình', 1),
@@ -975,7 +981,7 @@ INSERT INTO `ROLE_PERMISSIONS` (`role`, `permission_id`, `created_at`)
 SELECT 'user', `id`, CURRENT_TIMESTAMP FROM `PERMISSIONS`
 WHERE `code` IN (
   'auth.login','auth.logout','auth.refresh','auth.change_password','auth.request_password_reset','auth.reset_password',
-  'auth.request_email_otp','auth.verify_email_otp','auth.view_own_sessions','auth.revoke_own_session','auth.revoke_all_sessions',
+  'auth.verify_email','auth.view_own_sessions','auth.revoke_own_session','auth.revoke_all_sessions',
   'user.view_own','user.edit_own','facility.view','handover.view_own','handover.create','handover.update','handover.cancel',
   'handover.view_logs','event.view','event_registration.create','event_registration.view_own','wallet.view_own',
   'points.view_own_history','redemption.view_own','redemption.create','redemption.cancel','reward_catalog.view',
@@ -988,7 +994,7 @@ INSERT INTO `ROLE_PERMISSIONS` (`role`, `permission_id`, `created_at`)
 SELECT 'staff', `id`, CURRENT_TIMESTAMP FROM `PERMISSIONS`
 WHERE `code` IN (
   'auth.login','auth.logout','auth.refresh','auth.change_password','auth.request_password_reset','auth.reset_password',
-  'auth.request_email_otp','auth.verify_email_otp','auth.view_own_sessions','auth.revoke_own_session','auth.revoke_all_sessions',
+  'auth.verify_email','auth.view_own_sessions','auth.revoke_own_session','auth.revoke_all_sessions',
   'user.view_own','user.edit_own','user.view','user.update','facility.view','measurement_unit.view','waste_type.view',
   'handover.view','handover.view_own','handover.approve','handover.reject','handover.assign_staff','handover.reschedule',
   'handover.complete','handover.record_weight','handover.view_logs','event.view','event_registration.view',
@@ -1006,7 +1012,7 @@ INSERT INTO `ROLE_PERMISSIONS` (`role`, `permission_id`, `created_at`)
 SELECT 'manager', `id`, CURRENT_TIMESTAMP FROM `PERMISSIONS`
 WHERE `code` IN (
   'auth.login','auth.logout','auth.refresh','auth.change_password','auth.request_password_reset','auth.reset_password',
-  'auth.request_email_otp','auth.verify_email_otp','auth.view_own_sessions','auth.revoke_own_session','auth.revoke_all_sessions',
+  'auth.verify_email','auth.view_own_sessions','auth.revoke_own_session','auth.revoke_all_sessions',
   'user.view','user.create','user.update','user.delete','user.lock','user.unlock','user.assign_role','user.assign_facility',
   'user.reset_password','user.view_all_sessions','user.revoke_user_session','user.revoke_user_sessions_all','facility.view',
   'facility.create','facility.update','facility.delete','facility.lock','facility.unlock','measurement_unit.view',

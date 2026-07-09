@@ -31,5 +31,5 @@ Bảng key-value tập trung cho toàn bộ cấu hình do manager chỉnh qua U
 ## Ghi chú nghiệp vụ
 
 - `setting_value` là text - backend tự parse kiểu (số, boolean, JSON) theo từng `setting_key`.
-- Ví dụ setting: `storage_base_path`, `upload_max_size`, quota đọc bài/ngày, ngưỡng brute-force, thời gian hết hạn OTP.
+- Ví dụ setting: `storage_base_path`, `upload_max_size`, quota đọc bài/ngày, ngưỡng brute-force, timeout reset mật khẩu.
 - Nên cache tầng ứng dụng và invalidate khi có cập nhật, tránh query DB mỗi request.
