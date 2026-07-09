@@ -2,7 +2,7 @@
 
 Thư mục này tổng hợp tài liệu chi tiết cho từng bảng trong schema `loop_station` (MariaDB). Mỗi bảng có 1 file riêng: mục đích bảng, mô tả từng cột, quan hệ khóa ngoại và index.
 
-Nguồn schema: [schema.dbml](../../schema.dbml) • DDL deploy: [database.sql](../../database.sql)
+Nguồn schema: [schema.dbml](../schema/schema.dbml) • DDL deploy: [schema.sql](../../../database/schema/schema.sql) • Tổng quan: [schema/README.md](../schema/README.md)
 
 ## Danh sách bảng
 
