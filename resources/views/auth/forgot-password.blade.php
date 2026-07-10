@@ -1,14 +1,14 @@
-<x-auth-layout title="Quên mật khẩu">
+<x-auth-layout :title="__('pages.forgot_password')">
     <form method="post" action="{{ route('password.email') }}">
         @csrf
 
         <x-auth.field
             name="email"
-            label="Email"
+            :label="__('auth.labels.email')"
             type="email"
-            placeholder="Email"
+            :placeholder="__('auth.labels.email')"
         />
 
-        <button type="submit">Gửi link đặt lại</button>
+        <button type="submit">{{ __('auth.buttons.send_reset_link') }}</button>
     </form>
 </x-auth-layout>

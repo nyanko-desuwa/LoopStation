@@ -1,8 +1,8 @@
-<x-auth-layout title="Xác minh email">
-    <p>Kiểm tra hộp thư rồi bấm vào link xác minh là xong.</p>
+<x-auth-layout :title="__('pages.verify_email')">
+    <p>{{ __('auth.descriptions.verify_email') }}</p>
 
     <form method="post" action="{{ route('verification.send') }}">
         @csrf
-        <button type="submit">Gửi lại email xác minh</button>
+        <button type="submit">{{ __('auth.buttons.resend_verification_email') }}</button>
     </form>
 </x-auth-layout>

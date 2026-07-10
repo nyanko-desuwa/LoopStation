@@ -1,41 +1,41 @@
-<x-auth-layout title="Đăng ký">
+<x-auth-layout :title="__('pages.register')">
     <form method="post" action="{{ route('register.store') }}">
         @csrf
 
         <x-auth.field
             name="name"
-            label="Họ và tên"
-            placeholder="Họ và tên"
+            :label="__('auth.labels.name')"
+            :placeholder="__('auth.labels.name')"
         />
 
         <x-auth.field
             name="phone"
-            label="Số điện thoại"
-            placeholder="Số điện thoại"
+            :label="__('auth.labels.phone')"
+            :placeholder="__('auth.labels.phone')"
         />
 
         <x-auth.field
             name="email"
-            label="Email"
+            :label="__('auth.labels.email')"
             type="email"
-            placeholder="Email"
+            :placeholder="__('auth.labels.email')"
         />
 
         <x-auth.field
             name="password"
-            label="Mật khẩu"
+            :label="__('auth.labels.password')"
             type="password"
-            placeholder="Mật khẩu"
+            :placeholder="__('auth.labels.password')"
         />
 
         <x-auth.field
             name="password_confirmation"
-            label="Nhập lại mật khẩu"
+            :label="__('auth.labels.password_confirmation')"
             type="password"
-            placeholder="Nhập lại mật khẩu"
+            :placeholder="__('auth.labels.password_confirmation')"
             value=""
         />
 
-        <button type="submit">Đăng ký</button>
+        <button type="submit">{{ __('auth.buttons.register') }}</button>
     </form>
 </x-auth-layout>

@@ -19,7 +19,7 @@ class EmailVerificationController extends Controller
         $user = $request->user() ?? \App\Models\User::findOrFail($request->route('id'));
 
         if ($user->hasVerifiedEmail()) {
-            return response()->json(['message' => 'Email đã xác minh rồi.']);
+            return response()->json(['message' => __('auth.email_already_verified')]);
         }
 
         if (! hash_equals((string) $request->route('hash'), sha1($user->getEmailForVerification()))) {
@@ -28,13 +28,13 @@ class EmailVerificationController extends Controller
 
         $this->authService->verifyEmail($user);
 
-        return response()->json(['message' => 'Xác minh email xong.']);
+        return response()->json(['message' => __('auth.email_verified')]);
     }
 
     public function send(Request $request): JsonResponse
     {
         $this->authService->sendVerification($request->user());
 
-        return response()->json(['message' => 'Đã gửi lại email xác minh.']);
+        return response()->json(['message' => __('auth.verification_link_sent')]);
     }
 }

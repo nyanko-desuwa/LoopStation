@@ -8,7 +8,9 @@
     id int [pk, increment]
     name varchar(150) [not null]
     phone varchar(20) [unique, note: 'Dùng cho user vẫng lai đăng ký nhanh']
-    email varchar(150) [unique]
+    email varchar(150) [note: 'Email user nhập khi đăng ký. Dùng để hiển thị và gửi thông báo']
+    email_canonical varchar(150) [unique, note: 'Email dạng chuẩn hóa theo mailbox rule của provider. Dùng để xác định cùng mailbox và chống trùng tài khoản']
+    locale varchar(10) [not null, default: 'vi', note: 'Locale UI mặc định của user. Dùng cho dropdown vi/en và i18n per-user']
     email_verified_at timestamp [null, note: 'Chuẩn Laravel. Thời điểm email được xác minh (qua link xác minh của Laravel). NULL = chưa xác minh']
     password varchar(255) [null, note: 'Hash mật khẩu (cột chuẩn Laravel, dùng Auth). NULL với tài khoản user vãng lai. User vãng lai nhận mật khẩu tạm gửi qua email']
     remember_token varchar(100) [null, note: 'Chuẩn Laravel "remember me". Token duy trì đăng nhập cho web guard']
@@ -29,7 +31,7 @@
       email
       deleted_at
     }
-    Note: 'Chung 1 bảng cho cả 3 role, phân biệt bằng cột role. Bao gồm tài khoản vãng lai. Tương thích Auth Laravel: dùng cột password + email_verified_at + remember_token chuẩn framework.'
+    Note: 'Chung 1 bảng cho cả 3 role, phân biệt bằng cột role. Bao gồm tài khoản vãng lai. Tương thích Auth Laravel: dùng cột password + email_verified_at + remember_token chuẩn framework. email_canonical là khóa duy nhất để xác định mailbox thực tế theo rule từng provider.'
   }
 
   // BẢNG FRAMEWORK LARAVEL (auth mặc định)

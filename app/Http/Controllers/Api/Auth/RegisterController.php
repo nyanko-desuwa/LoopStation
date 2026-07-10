@@ -19,7 +19,7 @@ class RegisterController extends Controller
         $user = $this->authService->register($request->validated());
 
         return response()->json([
-            'message' => 'Đăng ký xong rồi.',
+            'message' => __('auth.register_success'),
             'user' => new UserResource($user),
         ], 201);
     }

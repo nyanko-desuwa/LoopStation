@@ -26,7 +26,7 @@ class LoginController extends Controller
         $token = $user->createToken('api')->plainTextToken;
 
         return response()->json([
-            'message' => 'Đăng nhập thành công.',
+            'message' => __('auth.login_success'),
             'token' => $token,
             'user' => new UserResource($user),
         ]);

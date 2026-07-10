@@ -31,6 +31,6 @@ class EmailVerificationController extends Controller
     {
         $this->authService->sendVerification($request->user());
 
-        return back()->with('status', 'Đã gửi lại email xác minh.');
+        return back()->with('status', __('auth.verification_link_sent'));
     }
 }

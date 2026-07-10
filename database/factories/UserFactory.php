@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\User;
+use App\Support\EmailBox;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -14,11 +15,15 @@ class UserFactory extends Factory
 
     public function definition(): array
     {
+        $email = fake()->unique()->safeEmail();
+
         return [
             'name' => fake()->name(),
             'phone' => fake()->optional()->numerify('0#########'),
-            'email' => fake()->unique()->safeEmail(),
+            'email' => $email,
+            'email_canonical' => EmailBox::normalize($email),
             'email_verified_at' => now(),
+            'locale' => 'vi',
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
             'avatar_url' => null,

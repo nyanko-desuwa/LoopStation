@@ -15,7 +15,9 @@ return new class extends Migration
             $table->id();
             $table->string('name', 150);
             $table->string('phone', 20)->unique()->nullable();
-            $table->string('email', 150)->unique()->nullable();
+            $table->string('email', 150)->nullable();
+            $table->string('email_canonical', 150)->nullable()->unique();
+            $table->string('locale', 10)->default('vi');
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password')->nullable()
                 ->comment('Hash mật khẩu. NULL với tài khoản walk-in');
