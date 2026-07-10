@@ -19,4 +19,13 @@ class LoginRequest extends FormRequest
             'remember' => ['sometimes', 'boolean'],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('login')) {
+            $this->merge([
+                'login' => trim($this->string('login')->toString()),
+            ]);
+        }
+    }
 }

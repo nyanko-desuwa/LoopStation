@@ -10,8 +10,8 @@ Ghi lại mọi lần đăng nhập, cả thành công lẫn thất bại. Appen
 | --- | --- | --- | --- | --- |
 | `id` | bigint | NOT NULL | auto_increment | PK (bigint vì lượng ghi lớn) |
 | `user_id` | int | NULL | - | FK → USERS. NULL nếu email chưa có tài khoản |
-| `login_identifier` | varchar(150) | NOT NULL | - | Email thử đăng nhập |
-| `login_method` | varchar(30) | NOT NULL | - | `password` \| `walk_in_auto_login` |
+| `login_identifier` | varchar(150) | NOT NULL | - | Email / phone / username dùng để đăng nhập |
+'}},{| `login_method` | varchar(30) | NOT NULL | - | `password` \| `walk_in_auto_login` |
 | `success` | boolean | NOT NULL | - | true = đăng nhập thành công |
 | `failure_reason` | varchar(100) | NULL | - | `wrong_password` \| `account_locked` \| `user_not_found` \| `must_change_password` ... |
 | `ip_address` | varchar(45) | NULL | - | IPv4 / IPv6 |

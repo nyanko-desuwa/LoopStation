@@ -12,3 +12,4 @@ Folder này chứa tài liệu đặc tả nghiệp vụ (business/requirement) 
 
 - Tài liệu database schema: [`docs/database/`](../database/)
 - Schema nguồn: [`database/schema/`](../../database/schema/)
+- Ghi chú i18n: bảng `USERS` lưu `locale` mặc định `vi` để phục vụ dropdown `vi` / `en` và đồng bộ ngôn ngữ giao diện

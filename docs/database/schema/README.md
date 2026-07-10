@@ -261,6 +261,7 @@ Tất cả actor trong hệ thống dùng chung bảng này. Phân quyền dựa
 | phone | VARCHAR(20) UNIQUE | SĐT liên hệ (tùy chọn). Không dùng cho xác thực |
 | email | VARCHAR(150) UNIQUE | Email đăng nhập và nhận thông báo. Kênh liên lạc chính, kể cả user vãng lai |
 | email_verified_at | TIMESTAMP NULL | Chuẩn Laravel. Thời điểm email xác minh qua link (`MustVerifyEmail`). NULL = chưa xác minh |
+| locale | VARCHAR(10) NOT NULL DEFAULT 'vi' | Locale UI mặc định của user. Dùng cho dropdown `vi` / `en` và i18n theo user |
 | password | VARCHAR(255) NULL | Hash mật khẩu (cột chuẩn Laravel Auth). User vãng lai luôn có mật khẩu tạm, nhận qua email để dùng cho lần đăng nhập tiếp theo |
 | remember_token | VARCHAR(100) NULL | Chuẩn Laravel "remember me" cho web guard |
 | avatar_url | VARCHAR(500) NULL | Ảnh đại diện user |

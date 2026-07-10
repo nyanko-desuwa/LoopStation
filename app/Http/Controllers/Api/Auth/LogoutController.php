@@ -12,6 +12,6 @@ class LogoutController extends Controller
     {
         $request->user()?->currentAccessToken()?->delete();
 
-        return response()->json(['message' => 'Đã đăng xuất.']);
+        return response()->json(['message' => __('auth.logout_success')]);
     }
 }

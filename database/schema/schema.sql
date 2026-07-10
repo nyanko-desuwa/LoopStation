@@ -124,7 +124,9 @@ CREATE TABLE `USERS` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(150) NOT NULL,
   `phone` VARCHAR(20) UNIQUE COMMENT 'SĐT liên hệ (tùy chọn), không dùng cho xác thực',
-  `email` VARCHAR(150) UNIQUE COMMENT 'Email đăng nhập và nhận thông báo - kênh liên lạc chính, kể cả user vãng lai',
+  `email` VARCHAR(150) COMMENT 'Email user nhập khi đăng ký. Dùng để hiển thị và gửi thông báo',
+  `email_canonical` VARCHAR(150) COMMENT 'Email dạng chuẩn hóa theo mailbox rule của provider (bỏ dấu chấm Gmail, bỏ +tag Outlook/iCloud..., lowercase). Dùng để xác định "cùng mailbox" và chống trùng tài khoản',
+  `locale` VARCHAR(10) NOT NULL DEFAULT 'vi' COMMENT 'Locale UI mặc định của user. Dùng cho dropdown vi/en và i18n per-user',
   `email_verified_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'Thời điểm email xác minh qua link của Laravel. NULL = chưa xác minh',
   `password` VARCHAR(255) DEFAULT NULL COMMENT 'Hash mật khẩu (chuẩn Laravel Auth). NULL với tài khoản Walk-in tự sinh. Walk-in nhận mật khẩu tạm gửi qua email',
   `avatar_url` VARCHAR(500) DEFAULT NULL COMMENT 'Ảnh đại diện user',
@@ -138,10 +140,11 @@ CREATE TABLE `USERS` (
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_users_email_canonical` (`email_canonical`),
+  INDEX `idx_users_email` (`email`),
   INDEX `idx_users_role` (`role`),
   INDEX `idx_users_facility` (`facility_id`),
   INDEX `idx_users_phone` (`phone`),
-  INDEX `idx_users_email` (`email`),
   INDEX `idx_users_deleted` (`deleted_at`),
   CONSTRAINT `fk_users_facility` FOREIGN KEY (`facility_id`) REFERENCES `FACILITIES` (`id`) ON DELETE SET NULL
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'Người dùng: User, Staff, manager (tương thích Auth Laravel: password + email_verified_at + remember_token)';

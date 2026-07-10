@@ -3,17 +3,15 @@
 namespace App\Services;
 
 use App\Models\User;
-use Illuminate\Auth\Events\Registered;
+use App\Support\EmailBox;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
-use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 class AuthService
 {
@@ -38,10 +36,11 @@ class AuthService
 
     public function attemptLogin(string $login, string $password, bool $remember = false): User
     {
-        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'phone';
+        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email_canonical' : 'phone';
+        $value = $field === 'email_canonical' ? EmailBox::normalize($login) : $login;
 
         $user = User::query()
-            ->where($field, $login)
+            ->where($field, $value)
             ->where('status', 'active')
             ->first();
 
@@ -63,14 +62,20 @@ class AuthService
 
     public function sendResetLink(string $email): string
     {
-        return Password::sendResetLink(['email' => $email]);
+        $user = $this->findUserByCanonicalEmail($email);
+
+        return Password::sendResetLink([
+            'email' => $user?->email ?? $email,
+        ]);
     }
 
     public function resetPassword(array $data): string
     {
+        $user = $this->findUserByCanonicalEmail($data['email']);
+
         return Password::reset(
             [
-                'email' => $data['email'],
+                'email' => $user?->email ?? $data['email'],
                 'password' => $data['password'],
                 'password_confirmation' => $data['password'],
                 'token' => $data['token'],
@@ -103,5 +108,18 @@ class AuthService
 
         $user->markEmailAsVerified();
         event(new Verified($user));
+    }
+
+    private function findUserByCanonicalEmail(string $email): ?User
+    {
+        $canonical = EmailBox::normalize($email);
+
+        if ($canonical === '') {
+            return null;
+        }
+
+        return User::query()
+            ->where('email_canonical', $canonical)
+            ->first();
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\EmailBox;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,6 +17,8 @@ use Laravel\Sanctum\HasApiTokens;
     'name',
     'phone',
     'email',
+    'email_canonical',
+    'locale',
     'email_verified_at',
     'password',
     'avatar_url',
@@ -29,6 +32,29 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $user): void {
+            if ($user->email === null) {
+                $user->email_canonical = null;
+
+                return;
+            }
+
+            $email = trim($user->email);
+
+            if ($email === '') {
+                $user->email = null;
+                $user->email_canonical = null;
+
+                return;
+            }
+
+            $user->email = $email;
+            $user->email_canonical = EmailBox::normalize($email);
+        });
+    }
 
     protected function casts(): array
     {
