@@ -1,4 +1,4 @@
-<x-auth-layout :title="__('auth.pages.register')">
+<x-auth-layout :title="__('pages.register')">
     <form method="post" action="{{ route('register.store') }}">
         @csrf
 

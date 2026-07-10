@@ -1,4 +1,4 @@
-<x-auth-layout :title="__('auth.pages.verify_email')">
+<x-auth-layout :title="__('pages.verify_email')">
     <p>{{ __('auth.descriptions.verify_email') }}</p>
 
     <form method="post" action="{{ route('verification.send') }}">

@@ -1,4 +1,4 @@
-<x-auth-layout :title="__('auth.pages.forgot_password')">
+<x-auth-layout :title="__('pages.forgot_password')">
     <form method="post" action="{{ route('password.email') }}">
         @csrf
 

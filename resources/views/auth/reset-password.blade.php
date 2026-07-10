@@ -1,4 +1,4 @@
-<x-auth-layout :title="__('auth.pages.reset_password')">
+<x-auth-layout :title="__('pages.reset_password')">
     <form method="post" action="{{ route('password.update') }}">
         @csrf
 
