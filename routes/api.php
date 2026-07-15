@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\Api\Auth\MeController;
 use App\Http\Controllers\Api\Auth\PasswordResetController;
 use App\Http\Controllers\Api\Auth\RegisterController;
+use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\EventRegistrationController;
 use App\Http\Controllers\Api\FacilityController;
 use App\Http\Controllers\Api\HandoverController;
 use App\Http\Controllers\Api\MeasurementUnitController;
@@ -139,7 +141,70 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('handovers/{handover}/complete', [HandoverController::class, 'complete'])
         ->middleware('permission:handover.complete')
         ->name('api.handovers.complete');
+
+    // Events - write/manage behind permissions; list/show also public below.
+    Route::post('events', [EventController::class, 'store'])
+        ->middleware('permission:event.create')
+        ->name('api.events.store');
+    Route::put('events/{event}', [EventController::class, 'update'])
+        ->middleware('permission:event.update')
+        ->name('api.events.update');
+    Route::patch('events/{event}', [EventController::class, 'update'])
+        ->middleware('permission:event.update')
+        ->name('api.events.patch');
+    Route::delete('events/{event}', [EventController::class, 'destroy'])
+        ->middleware('permission:event.delete')
+        ->name('api.events.destroy');
+    Route::post('events/{event}/activate', [EventController::class, 'activate'])
+        ->middleware('permission:event.publish')
+        ->name('api.events.activate');
+    Route::post('events/{event}/end', [EventController::class, 'end'])
+        ->middleware('permission:event.end')
+        ->name('api.events.end');
+    Route::post('events/{event}/cancel', [EventController::class, 'cancel'])
+        ->middleware('permission:event.update')
+        ->name('api.events.cancel');
+    Route::post('events/{event}/staff', [EventController::class, 'assignStaff'])
+        ->middleware('permission:event.assign_staff')
+        ->name('api.events.staff.assign');
+    Route::delete('events/{event}/staff/{staffId}', [EventController::class, 'unassignStaff'])
+        ->middleware('permission:event.assign_staff')
+        ->name('api.events.staff.unassign');
+    Route::post('events/{event}/rewards', [EventController::class, 'storeReward'])
+        ->middleware('permission:event.manage_rewards')
+        ->name('api.events.rewards.store');
+    Route::put('events/{event}/rewards/{reward}', [EventController::class, 'updateReward'])
+        ->middleware('permission:event.manage_rewards')
+        ->name('api.events.rewards.update');
+    Route::delete('events/{event}/rewards/{reward}', [EventController::class, 'destroyReward'])
+        ->middleware('permission:event.manage_rewards')
+        ->name('api.events.rewards.destroy');
+
+    // Event registrations.
+    Route::get('events/{event}/registrations', [EventRegistrationController::class, 'index'])
+        ->middleware('permission:event_registration.view')
+        ->name('api.events.registrations.index');
+    Route::post('events/{event}/registrations', [EventRegistrationController::class, 'store'])
+        ->middleware('permission:event_registration.create')
+        ->name('api.events.registrations.store');
+    Route::delete('events/{event}/registrations/{registration}', [EventRegistrationController::class, 'destroy'])
+        ->name('api.events.registrations.destroy');
+    Route::post('events/check-in', [EventRegistrationController::class, 'checkInByQr'])
+        ->name('api.events.check-in');
+    Route::post('events/{event}/registrations/{registration}/check-in', [EventRegistrationController::class, 'staffCheckIn'])
+        ->middleware('permission:event_registration.check_in')
+        ->name('api.events.registrations.check-in');
+    Route::post('events/{event}/registrations/{registration}/absent', [EventRegistrationController::class, 'markAbsent'])
+        ->middleware('permission:event_registration.mark_absent')
+        ->name('api.events.registrations.absent');
+    Route::post('events/{event}/registrations/{registration}/unlock-minigame', [EventRegistrationController::class, 'unlockMinigame'])
+        ->middleware('permission:event.unlock_minigame')
+        ->name('api.events.registrations.unlock-minigame');
 });
+
+// Events public list/show (upcoming + active for guests).
+Route::get('events', [EventController::class, 'index'])->name('api.events.index');
+Route::get('events/{event}', [EventController::class, 'show'])->name('api.events.show');
 
 // Measurement units - public catalog for handover forms.
 Route::get('measurement-units', [MeasurementUnitController::class, 'index'])
