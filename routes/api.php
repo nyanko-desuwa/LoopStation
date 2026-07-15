@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\Api\Auth\MeController;
 use App\Http\Controllers\Api\Auth\PasswordResetController;
 use App\Http\Controllers\Api\Auth\RegisterController;
+use App\Http\Controllers\Api\FacilityController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->name('api.auth.')->group(function (): void {
@@ -26,4 +27,16 @@ Route::prefix('auth')->name('api.auth.')->group(function (): void {
             ->middleware('throttle:6,1')
             ->name('verification.send');
     });
+});
+
+// Facilities — list/show public (active only for guests/users);
+// write actions require auth:sanctum + manager role (enforced in FormRequest / controller).
+Route::get('facilities', [FacilityController::class, 'index'])->name('api.facilities.index');
+Route::get('facilities/{facility}', [FacilityController::class, 'show'])->name('api.facilities.show');
+
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::post('facilities', [FacilityController::class, 'store'])->name('api.facilities.store');
+    Route::put('facilities/{facility}', [FacilityController::class, 'update'])->name('api.facilities.update');
+    Route::patch('facilities/{facility}', [FacilityController::class, 'update'])->name('api.facilities.patch');
+    Route::delete('facilities/{facility}', [FacilityController::class, 'destroy'])->name('api.facilities.destroy');
 });

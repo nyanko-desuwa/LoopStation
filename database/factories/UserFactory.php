@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Facility;
 use App\Models\User;
 use App\Support\EmailBox;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -44,21 +45,33 @@ class UserFactory extends Factory
     }
 
     // nhân viên thuộc 1 cơ sở
-    public function staff(?int $facilityId = null): static
+    public function staff(Facility|int|null $facility = null): static
     {
-        return $this->state(fn (array $attributes) => [
-            'role' => 'staff',
-            'facility_id' => $facilityId,
-        ]);
+        return $this->state(function (array $attributes) use ($facility) {
+            $facilityId = $facility instanceof Facility
+                ? $facility->id
+                : ($facility ?? Facility::factory()->create()->id);
+
+            return [
+                'role' => 'staff',
+                'facility_id' => $facilityId,
+            ];
+        });
     }
 
     // quản lý cơ sở
-    public function manager(?int $facilityId = null): static
+    public function manager(Facility|int|null $facility = null): static
     {
-        return $this->state(fn (array $attributes) => [
-            'role' => 'manager',
-            'facility_id' => $facilityId,
-        ]);
+        return $this->state(function (array $attributes) use ($facility) {
+            $facilityId = $facility instanceof Facility
+                ? $facility->id
+                : ($facility ?? Facility::factory()->create()->id);
+
+            return [
+                'role' => 'manager',
+                'facility_id' => $facilityId,
+            ];
+        });
     }
 
     // tài khoản vãng lai từ QR sự kiện, dùng mật khẩu tạm, buộc đổi sau
