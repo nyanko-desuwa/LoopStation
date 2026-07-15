@@ -20,7 +20,13 @@ class FacilityController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $asManager = $request->user()?->role === 'manager';
+        // Có facility.update/delete/lock ⇒ xem full list (kể cả locked).
+        $asManager = $request->user()?->hasAnyPermission([
+            'facility.update',
+            'facility.delete',
+            'facility.lock',
+            'facility.unlock',
+        ]) ?? false;
 
         $facilities = $this->facilityService->list(
             filters: [
@@ -36,8 +42,15 @@ class FacilityController extends Controller
 
     public function show(Facility $facility): FacilityResource
     {
-        // User thường không xem cơ sở locked; manager xem được tất cả.
-        if ($facility->isLocked() && request()->user()?->role !== 'manager') {
+        // User thường không xem cơ sở locked; ai có quyền quản lý facility thì xem được.
+        $canManage = request()->user()?->hasAnyPermission([
+            'facility.update',
+            'facility.delete',
+            'facility.lock',
+            'facility.unlock',
+        ]) ?? false;
+
+        if ($facility->isLocked() && ! $canManage) {
             abort(404);
         }
 
@@ -66,8 +79,9 @@ class FacilityController extends Controller
 
     public function destroy(Request $request, Facility $facility): JsonResponse
     {
-        if ($request->user()?->role !== 'manager') {
-            abort(403);
+        // Middleware permission:facility.delete đã chặn; double-check cho rõ.
+        if (! $request->user()?->hasPermission('facility.delete')) {
+            abort(403, __('permissions.messages.forbidden'));
         }
 
         $this->facilityService->delete($facility);

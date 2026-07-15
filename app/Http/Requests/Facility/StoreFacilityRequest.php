@@ -10,7 +10,8 @@ class StoreFacilityRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->role === 'manager';
+        // Gate bằng RBAC; middleware permission:facility.create cũng chặn trước.
+        return $this->user()?->hasPermission('facility.create') ?? false;
     }
 
     public function rules(): array

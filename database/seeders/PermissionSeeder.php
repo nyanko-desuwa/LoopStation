@@ -1,0 +1,188 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\Permission;
+use App\Models\RolePermission;
+use App\Services\PermissionService;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+
+class PermissionSeeder extends Seeder
+{
+    /**
+     * Seed danh mục quyền + mapping mặc định cho 3 role.
+     * Idempotent: dùng updateOrCreate theo code, rồi rebuild role_permissions.
+     */
+    public function run(): void
+    {
+        $catalog = $this->catalog();
+
+        foreach ($catalog as $row) {
+            Permission::query()->updateOrCreate(
+                ['code' => $row['code']],
+                [
+                    'resource' => $row['resource'],
+                    'action' => $row['action'],
+                    'name' => $row['name'],
+                    'description' => $row['description'],
+                    'is_system' => true,
+                ]
+            );
+        }
+
+        $roleMap = $this->defaultRoleMap();
+
+        DB::transaction(function () use ($roleMap): void {
+            // Rebuild mapping mặc định (seed system, created_by = null).
+            RolePermission::query()->delete();
+
+            $now = now();
+            $rows = [];
+
+            foreach ($roleMap as $role => $codes) {
+                $ids = Permission::query()
+                    ->whereIn('code', $codes)
+                    ->pluck('id')
+                    ->all();
+
+                foreach ($ids as $id) {
+                    $rows[] = [
+                        'role' => $role,
+                        'permission_id' => $id,
+                        'created_by' => null,
+                        'created_at' => $now,
+                    ];
+                }
+            }
+
+            if ($rows !== []) {
+                // Chunk để tránh packet quá lớn khi seed full catalog.
+                foreach (array_chunk($rows, 200) as $chunk) {
+                    RolePermission::query()->insert($chunk);
+                }
+            }
+        });
+
+        app(PermissionService::class)->flushAllRoleCaches();
+    }
+
+    /**
+     * @return list<array{code: string, resource: string, action: string, name: string, description: string}>
+     */
+    private function catalog(): array
+    {
+        // Tập tối thiểu: Auth + Facilities + RBAC + Catalogs + Handover.
+        // Domain sau (event, ...) bổ sung khi triển khai.
+        $items = [
+            // auth
+            ['auth', 'login', 'Đăng nhập', 'Đăng nhập hệ thống'],
+            ['auth', 'logout', 'Đăng xuất', 'Đăng xuất phiên hiện tại'],
+            ['auth', 'change_password', 'Đổi mật khẩu', 'Đổi mật khẩu tài khoản'],
+            ['auth', 'request_password_reset', 'Yêu cầu reset mật khẩu', 'Gửi yêu cầu đặt lại mật khẩu'],
+            ['auth', 'reset_password', 'Reset mật khẩu', 'Đặt lại mật khẩu bằng link'],
+            ['auth', 'verify_email', 'Xác minh email', 'Xác minh email qua link'],
+            // user
+            ['user', 'view_own', 'Xem hồ sơ của tôi', 'Xem thông tin tài khoản của chính mình'],
+            ['user', 'edit_own', 'Sửa hồ sơ của tôi', 'Sửa thông tin cá nhân của chính mình'],
+            ['user', 'view', 'Xem user', 'Xem danh sách/tài khoản user'],
+            ['user', 'create', 'Tạo user', 'Tạo tài khoản mới'],
+            ['user', 'update', 'Cập nhật user', 'Sửa thông tin tài khoản'],
+            ['user', 'delete', 'Xóa user', 'Xóa mềm/xóa tài khoản'],
+            ['user', 'lock', 'Khóa user', 'Khóa tài khoản'],
+            ['user', 'unlock', 'Mở khóa user', 'Mở khóa tài khoản'],
+            ['user', 'assign_role', 'Gán role', 'Gán vai trò cho user'],
+            ['user', 'assign_facility', 'Gán cơ sở', 'Gán cơ sở cho staff/manager'],
+            // facility
+            ['facility', 'view', 'Xem cơ sở', 'Xem danh sách cơ sở'],
+            ['facility', 'create', 'Tạo cơ sở', 'Tạo cơ sở mới'],
+            ['facility', 'update', 'Cập nhật cơ sở', 'Sửa thông tin cơ sở'],
+            ['facility', 'delete', 'Xóa cơ sở', 'Xóa mềm cơ sở'],
+            ['facility', 'lock', 'Khóa cơ sở', 'Khóa hiển thị cơ sở'],
+            ['facility', 'unlock', 'Mở khóa cơ sở', 'Mở khóa hiển thị cơ sở'],
+            // measurement_unit
+            ['measurement_unit', 'view', 'Xem đơn vị đo', 'Xem danh sách đơn vị đo'],
+            ['measurement_unit', 'create', 'Tạo đơn vị đo', 'Thêm đơn vị đo mới'],
+            ['measurement_unit', 'update', 'Cập nhật đơn vị đo', 'Sửa đơn vị đo'],
+            ['measurement_unit', 'delete', 'Xóa đơn vị đo', 'Xóa mềm đơn vị đo'],
+            // waste_type
+            ['waste_type', 'view', 'Xem loại rác', 'Xem danh sách loại rác (full, kể cả custom người khác)'],
+            ['waste_type', 'create', 'Tạo loại rác chuẩn', 'Thêm loại rác hệ thống'],
+            ['waste_type', 'update', 'Cập nhật loại rác', 'Sửa loại rác'],
+            ['waste_type', 'delete', 'Xóa loại rác', 'Xóa mềm loại rác'],
+            ['waste_type', 'create_custom', 'Tự thêm loại rác', 'User thêm loại rác riêng cho mình'],
+            // handover
+            ['handover', 'view', 'Xem đơn chuyển giao', 'Xem đơn theo cơ sở'],
+            ['handover', 'view_own', 'Xem đơn của tôi', 'Xem đơn do chính mình tạo'],
+            ['handover', 'create', 'Tạo đơn chuyển giao', 'Tạo đơn mới'],
+            ['handover', 'update', 'Cập nhật đơn chuyển giao', 'Sửa đơn pending của mình'],
+            ['handover', 'cancel', 'Hủy đơn chuyển giao', 'Hủy đơn'],
+            ['handover', 'approve', 'Duyệt đơn chuyển giao', 'Duyệt đơn pending'],
+            ['handover', 'reject', 'Từ chối đơn chuyển giao', 'Từ chối đơn'],
+            ['handover', 'assign_staff', 'Phân công staff', 'Gán staff xử lý đơn'],
+            ['handover', 'reschedule', 'Dời lịch đơn', 'Dời lịch hẹn'],
+            ['handover', 'complete', 'Hoàn tất đơn', 'Đánh dấu hoàn tất'],
+            ['handover', 'record_weight', 'Ghi cân', 'Ghi nhận cân thực tế'],
+            ['handover', 'view_logs', 'Xem log đơn', 'Xem lịch sử/thao tác đơn'],
+            // permission / role_permission
+            ['permission', 'view', 'Xem quyền', 'Xem danh mục quyền'],
+            ['permission', 'create', 'Tạo quyền', 'Thêm quyền mới'],
+            ['permission', 'update', 'Cập nhật quyền', 'Sửa quyền'],
+            ['permission', 'delete', 'Xóa quyền', 'Xóa quyền'],
+            ['role_permission', 'view', 'Xem mapping role', 'Xem quyền theo role'],
+            ['role_permission', 'update', 'Cập nhật mapping role', 'Sửa quyền theo role'],
+        ];
+
+        return array_map(static function (array $row): array {
+            [$resource, $action, $name, $description] = $row;
+
+            return [
+                'code' => "{$resource}.{$action}",
+                'resource' => $resource,
+                'action' => $action,
+                'name' => $name,
+                'description' => $description,
+            ];
+        }, $items);
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function defaultRoleMap(): array
+    {
+        $user = [
+            'auth.login', 'auth.logout', 'auth.change_password',
+            'auth.request_password_reset', 'auth.reset_password', 'auth.verify_email',
+            'user.view_own', 'user.edit_own',
+            'facility.view',
+            'measurement_unit.view',
+            'waste_type.view', 'waste_type.create_custom',
+            'handover.view_own', 'handover.create', 'handover.update', 'handover.cancel',
+            'handover.reschedule', 'handover.view_logs',
+        ];
+
+        $staff = array_values(array_unique(array_merge($user, [
+            'user.view', 'user.update',
+            'handover.view', 'handover.approve', 'handover.reject', 'handover.assign_staff',
+            'handover.complete', 'handover.record_weight',
+        ])));
+
+        $manager = array_values(array_unique(array_merge($staff, [
+            'user.create', 'user.delete', 'user.lock', 'user.unlock',
+            'user.assign_role', 'user.assign_facility',
+            'facility.create', 'facility.update', 'facility.delete',
+            'facility.lock', 'facility.unlock',
+            'measurement_unit.create', 'measurement_unit.update', 'measurement_unit.delete',
+            'waste_type.create', 'waste_type.update', 'waste_type.delete',
+            'permission.view', 'permission.create', 'permission.update', 'permission.delete',
+            'role_permission.view', 'role_permission.update',
+        ])));
+
+        return [
+            'user' => $user,
+            'staff' => $staff,
+            'manager' => $manager,
+        ];
+    }
+}

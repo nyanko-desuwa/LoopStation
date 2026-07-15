@@ -2,10 +2,16 @@
 
 use App\Models\Facility;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
+
+// Facility write/list-manager cần RBAC seed.
+beforeEach(function () {
+    $this->seed(PermissionSeeder::class);
+});
 
 it('liệt kê cơ sở active cho guest', function () {
     Facility::factory()->count(2)->create();

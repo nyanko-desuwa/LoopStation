@@ -2,7 +2,7 @@
 
 ## Vai trò
 
-Danh mục vật phẩm vật lý dùng làm quà khi user đổi sticker ảo. Manager CRUD toàn bộ: tạo vật phẩm với ảnh + tên + tồn kho. Thay cho việc hardcode "kẹo" — manager có thể thêm sticker dán, kẹo, sữa hay bất cứ vật phẩm nào.
+Danh mục vật phẩm vật lý dùng làm quà khi user đổi sticker ảo. Manager CRUD toàn bộ: tạo vật phẩm với ảnh + tên + tồn kho. Thay cho việc hardcode "kẹo" - manager có thể thêm sticker dán, kẹo, sữa hay bất cứ vật phẩm nào.
 
 ## Mô tả cột
 

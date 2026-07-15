@@ -10,7 +10,7 @@ class UpdateFacilityRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->role === 'manager';
+        return $this->user()?->hasPermission('facility.update') ?? false;
     }
 
     public function rules(): array
