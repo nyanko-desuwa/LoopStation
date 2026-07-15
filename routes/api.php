@@ -13,6 +13,9 @@ use App\Http\Controllers\Api\HandoverController;
 use App\Http\Controllers\Api\MeasurementUnitController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\RolePermissionController;
+use App\Http\Controllers\Api\RedemptionController;
+use App\Http\Controllers\Api\RewardCatalogController;
+use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WasteTypeController;
 use Illuminate\Support\Facades\Route;
 
@@ -200,7 +203,53 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('events/{event}/registrations/{registration}/unlock-minigame', [EventRegistrationController::class, 'unlockMinigame'])
         ->middleware('permission:event.unlock_minigame')
         ->name('api.events.registrations.unlock-minigame');
+
+    // Wallet / points - own wallet + manager adjust.
+    Route::get('wallet', [WalletController::class, 'me'])->name('api.wallet.me');
+    Route::get('wallet/history', [WalletController::class, 'myHistory'])->name('api.wallet.history');
+    Route::get('wallets', [WalletController::class, 'index'])
+        ->middleware('permission:wallet.view')
+        ->name('api.wallets.index');
+    Route::get('wallets/{user}', [WalletController::class, 'show'])->name('api.wallets.show');
+    Route::get('wallets/{user}/history', [WalletController::class, 'history'])->name('api.wallets.history');
+    Route::post('points/adjust', [WalletController::class, 'adjust'])
+        ->middleware('permission:points.adjust')
+        ->name('api.points.adjust');
+
+    // Reward catalog (manager write) + redemptions.
+    Route::post('rewards', [RewardCatalogController::class, 'store'])
+        ->middleware('permission:reward_catalog.create')
+        ->name('api.rewards.store');
+    Route::put('rewards/{reward_catalog}', [RewardCatalogController::class, 'update'])
+        ->middleware('permission:reward_catalog.update')
+        ->name('api.rewards.update');
+    Route::patch('rewards/{reward_catalog}', [RewardCatalogController::class, 'update'])
+        ->middleware('permission:reward_catalog.update')
+        ->name('api.rewards.patch');
+    Route::delete('rewards/{reward_catalog}', [RewardCatalogController::class, 'destroy'])
+        ->middleware('permission:reward_catalog.delete')
+        ->name('api.rewards.destroy');
+
+    Route::get('redemptions', [RedemptionController::class, 'index'])
+        ->name('api.redemptions.index');
+    Route::post('redemptions', [RedemptionController::class, 'store'])
+        ->middleware('permission:redemption.create')
+        ->name('api.redemptions.store');
+    Route::get('redemptions/{redemption}', [RedemptionController::class, 'show'])
+        ->name('api.redemptions.show');
+    Route::post('redemptions/{redemption}/cancel', [RedemptionController::class, 'cancel'])
+        ->name('api.redemptions.cancel');
+    Route::post('redemptions/{redemption}/shipping', [RedemptionController::class, 'markShipping'])
+        ->middleware('permission:redemption.fulfill')
+        ->name('api.redemptions.shipping');
+    Route::post('redemptions/{redemption}/fulfill', [RedemptionController::class, 'fulfill'])
+        ->middleware('permission:redemption.fulfill')
+        ->name('api.redemptions.fulfill');
 });
+
+// Reward catalog public list/show (active only for guests/users).
+Route::get('rewards', [RewardCatalogController::class, 'index'])->name('api.rewards.index');
+Route::get('rewards/{reward_catalog}', [RewardCatalogController::class, 'show'])->name('api.rewards.show');
 
 // Events public list/show (upcoming + active for guests).
 Route::get('events', [EventController::class, 'index'])->name('api.events.index');

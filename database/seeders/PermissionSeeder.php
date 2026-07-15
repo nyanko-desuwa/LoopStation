@@ -142,6 +142,21 @@ class PermissionSeeder extends Seeder
             ['event_registration', 'check_in', 'Check-in đăng ký', 'Staff check-in giúp'],
             ['event_registration', 'mark_absent', 'Đánh dấu vắng mặt', 'Đánh dấu absent'],
             ['event_registration', 'view_own', 'Xem đăng ký của tôi', 'Xem đăng ký của chính mình'],
+            // wallet / points
+            ['wallet', 'view', 'Xem ví', 'Xem ví điểm của user'],
+            ['wallet', 'view_own', 'Xem ví của tôi', 'Xem ví của chính mình'],
+            ['points', 'view_own_history', 'Xem lịch sử điểm của tôi', 'Xem giao dịch điểm của chính mình'],
+            ['points', 'adjust', 'Điều chỉnh điểm', 'Điều chỉnh cộng/trừ điểm'],
+            // reward catalog / redemptions
+            ['reward_catalog', 'view', 'Xem danh mục quà', 'Xem danh mục quà đổi điểm'],
+            ['reward_catalog', 'create', 'Tạo quà', 'Thêm quà vào danh mục'],
+            ['reward_catalog', 'update', 'Cập nhật quà', 'Sửa quà đổi'],
+            ['reward_catalog', 'delete', 'Xóa quà', 'Xóa mềm quà'],
+            ['redemption', 'view', 'Xem đổi quà', 'Xem tất cả đơn đổi quà'],
+            ['redemption', 'view_own', 'Xem đổi quà của tôi', 'Xem đơn đổi quà của chính mình'],
+            ['redemption', 'create', 'Tạo đổi quà', 'Đổi quà bằng điểm'],
+            ['redemption', 'cancel', 'Hủy đổi quà', 'Hủy đổi quà'],
+            ['redemption', 'fulfill', 'Xác nhận giao quà', 'Xác nhận đã giao quà'],
             // permission / role_permission
             ['permission', 'view', 'Xem quyền', 'Xem danh mục quyền'],
             ['permission', 'create', 'Tạo quyền', 'Thêm quyền mới'],
@@ -180,6 +195,9 @@ class PermissionSeeder extends Seeder
             'handover.reschedule', 'handover.view_logs',
             'event.view',
             'event_registration.create', 'event_registration.cancel', 'event_registration.view_own',
+            'wallet.view_own', 'points.view_own_history',
+            'reward_catalog.view',
+            'redemption.view_own', 'redemption.create', 'redemption.cancel',
         ];
 
         $staff = array_values(array_unique(array_merge($user, [
@@ -188,6 +206,8 @@ class PermissionSeeder extends Seeder
             'handover.complete', 'handover.record_weight',
             'event_registration.view', 'event_registration.check_in', 'event_registration.mark_absent',
             'event.check_in_user', 'event.unlock_minigame',
+            'wallet.view',
+            'redemption.view', 'redemption.fulfill',
         ])));
 
         $manager = array_values(array_unique(array_merge($staff, [
@@ -199,6 +219,8 @@ class PermissionSeeder extends Seeder
             'waste_type.create', 'waste_type.update', 'waste_type.delete',
             'event.create', 'event.update', 'event.delete', 'event.publish', 'event.end',
             'event.assign_staff', 'event.manage_rewards',
+            'points.adjust',
+            'reward_catalog.create', 'reward_catalog.update', 'reward_catalog.delete',
             'permission.view', 'permission.create', 'permission.update', 'permission.delete',
             'role_permission.view', 'role_permission.update',
         ])));
