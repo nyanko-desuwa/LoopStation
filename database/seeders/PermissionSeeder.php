@@ -124,6 +124,24 @@ class PermissionSeeder extends Seeder
             ['handover', 'complete', 'Hoàn tất đơn', 'Đánh dấu hoàn tất'],
             ['handover', 'record_weight', 'Ghi cân', 'Ghi nhận cân thực tế'],
             ['handover', 'view_logs', 'Xem log đơn', 'Xem lịch sử/thao tác đơn'],
+            // event
+            ['event', 'view', 'Xem sự kiện', 'Xem danh sách sự kiện'],
+            ['event', 'create', 'Tạo sự kiện', 'Tạo sự kiện mới'],
+            ['event', 'update', 'Cập nhật sự kiện', 'Sửa sự kiện'],
+            ['event', 'delete', 'Xóa sự kiện', 'Xóa mềm sự kiện'],
+            ['event', 'publish', 'Xuất bản sự kiện', 'Kích hoạt sự kiện (active)'],
+            ['event', 'end', 'Kết thúc sự kiện', 'Đóng sự kiện'],
+            ['event', 'assign_staff', 'Phân công staff sự kiện', 'Gán staff vào sự kiện'],
+            ['event', 'manage_rewards', 'Quản lý quà sự kiện', 'Quản lý quà minigame'],
+            ['event', 'check_in_user', 'Check-in user', 'Điểm danh user tại sự kiện'],
+            ['event', 'unlock_minigame', 'Mở khóa minigame', 'Mở minigame sau điều kiện'],
+            // event_registration
+            ['event_registration', 'view', 'Xem đăng ký sự kiện', 'Xem danh sách đăng ký'],
+            ['event_registration', 'create', 'Tạo đăng ký sự kiện', 'User tự đăng ký'],
+            ['event_registration', 'cancel', 'Hủy đăng ký', 'Hủy đăng ký sự kiện'],
+            ['event_registration', 'check_in', 'Check-in đăng ký', 'Staff check-in giúp'],
+            ['event_registration', 'mark_absent', 'Đánh dấu vắng mặt', 'Đánh dấu absent'],
+            ['event_registration', 'view_own', 'Xem đăng ký của tôi', 'Xem đăng ký của chính mình'],
             // permission / role_permission
             ['permission', 'view', 'Xem quyền', 'Xem danh mục quyền'],
             ['permission', 'create', 'Tạo quyền', 'Thêm quyền mới'],
@@ -160,12 +178,16 @@ class PermissionSeeder extends Seeder
             'waste_type.view', 'waste_type.create_custom',
             'handover.view_own', 'handover.create', 'handover.update', 'handover.cancel',
             'handover.reschedule', 'handover.view_logs',
+            'event.view',
+            'event_registration.create', 'event_registration.cancel', 'event_registration.view_own',
         ];
 
         $staff = array_values(array_unique(array_merge($user, [
             'user.view', 'user.update',
             'handover.view', 'handover.approve', 'handover.reject', 'handover.assign_staff',
             'handover.complete', 'handover.record_weight',
+            'event_registration.view', 'event_registration.check_in', 'event_registration.mark_absent',
+            'event.check_in_user', 'event.unlock_minigame',
         ])));
 
         $manager = array_values(array_unique(array_merge($staff, [
@@ -175,6 +197,8 @@ class PermissionSeeder extends Seeder
             'facility.lock', 'facility.unlock',
             'measurement_unit.create', 'measurement_unit.update', 'measurement_unit.delete',
             'waste_type.create', 'waste_type.update', 'waste_type.delete',
+            'event.create', 'event.update', 'event.delete', 'event.publish', 'event.end',
+            'event.assign_staff', 'event.manage_rewards',
             'permission.view', 'permission.create', 'permission.update', 'permission.delete',
             'role_permission.view', 'role_permission.update',
         ])));
