@@ -20,7 +20,7 @@ Khác với [USER_SESSIONS](user_sessions.md): bảng đó lưu **refresh token 
 | `ip_address` | varchar(45) | NULL | - | IPv4 / IPv6 của request |
 | `user_agent` | text | NULL | - | User-Agent string |
 | `payload` | longtext | NOT NULL | - | Dữ liệu session đã serialize (base64 + PHP serialize). Laravel quản lý toàn bộ |
-| `last_activity` | int | NOT NULL | - | Unix timestamp lần hoạt động cuối — dùng để dọn session hết hạn |
+| `last_activity` | int | NOT NULL | - | Unix timestamp lần hoạt động cuối - dùng để dọn session hết hạn |
 
 ## Quan hệ khóa ngoại
 
@@ -39,6 +39,6 @@ Khác với [USER_SESSIONS](user_sessions.md): bảng đó lưu **refresh token 
 ## Ghi chú nghiệp vụ
 
 - **Garbage collection**: Laravel tự chạy GC để xóa session có `last_activity < (now - lifetime)`. Tần suất GC cấu hình qua `config('session.gc_probability')` và `gc_divisor`.
-- **Không sửa trực tiếp**: cột `payload` do Laravel serialize/unserialize — không đọc/ghi thẳng bằng raw SQL.
+- **Không sửa trực tiếp**: cột `payload` do Laravel serialize/unserialize - không đọc/ghi thẳng bằng raw SQL.
 - **Timeout**: `config('session.lifetime')` (phút) xác định session còn hiệu lực bao lâu sau `last_activity`.
 - **Kết hợp với USER_SESSIONS**: nếu dự án dùng cả web guard (blade) lẫn API (mobile/SPA), `sessions` và `user_sessions` tồn tại song song, không xung đột. Web request dùng `sessions`; API call dùng JWT và `user_sessions`.

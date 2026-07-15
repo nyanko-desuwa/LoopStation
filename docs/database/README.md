@@ -13,8 +13,8 @@ Tài liệu database của dự án Loop Station. Được tách thành 2 phần
 
 ## Schema nguồn
 
-- [schema.dbml](schema/schema.dbml) — file thiết kế trên dbdiagram.io (thuộc tài liệu, không phải file DB)
-- [schema.sql](../../database/schema/schema.sql) — DDL MariaDB để deploy, nằm trong [`database/schema/`](../../database/schema/)
+- [schema.dbml](schema/schema.dbml) - file thiết kế trên dbdiagram.io (thuộc tài liệu, không phải file DB)
+- [schema.sql](../../database/schema/schema.sql) - DDL MariaDB để deploy, nằm trong [`database/schema/`](../../database/schema/)
 
 ## Liên quan
 

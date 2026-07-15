@@ -12,7 +12,7 @@ File thiết kế nguồn `schema.dbml` ([dbdiagram.io](https://dbdiagram.io/d/L
 
 ## Lưu ý
 
-- **Không sửa trực tiếp SQL** — sửa trên dbdiagram.io rồi export lại để đồng bộ.
+- **Không sửa trực tiếp SQL** - sửa trên dbdiagram.io rồi export lại để đồng bộ.
 - Migration thực tế nằm trong `database/migrations/` (chuẩn Laravel).
 - Tổng quan schema + luồng nghiệp vụ: [`docs/database/schema/`](../../docs/database/schema/).
 - Tài liệu chi tiết từng bảng: [`docs/database/tables/`](../../docs/database/tables/).

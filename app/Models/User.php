@@ -62,6 +62,39 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsTo(Facility::class);
     }
 
+    /**
+     * Check quyền RBAC theo code (resource.action).
+     * Cache theo role trong PermissionService.
+     */
+    public function hasPermission(string $code): bool
+    {
+        return app(\App\Services\PermissionService::class)->userHas($this, $code);
+    }
+
+    /**
+     * @param  list<string>  $codes
+     */
+    public function hasAnyPermission(array $codes): bool
+    {
+        foreach ($codes as $code) {
+            if ($this->hasPermission($code)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function isManager(): bool
+    {
+        return $this->role === 'manager';
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->role === 'staff';
+    }
+
     protected function casts(): array
     {
         return [
