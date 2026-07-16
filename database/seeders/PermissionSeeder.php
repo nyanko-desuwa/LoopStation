@@ -174,6 +174,20 @@ class PermissionSeeder extends Seeder
             ['sticker', 'update', 'Cập nhật sticker', 'Sửa sticker'],
             ['sticker', 'delete', 'Xóa sticker', 'Xóa mềm sticker'],
             ['sticker', 'obtain', 'Nhận sticker', 'Nhận sticker từ drop (user)'],
+            ['sticker', 'redeem', 'Đổi sticker vật lý', 'User đổi sticker ảo lấy vật phẩm'],
+            // sticker reward items / rules / redemptions (đổi sticker vật lý)
+            ['sticker_reward_item', 'view', 'Xem vật phẩm quà sticker', 'Xem danh mục vật phẩm đổi sticker'],
+            ['sticker_reward_item', 'create', 'Tạo vật phẩm quà sticker', 'Thêm vật phẩm đổi sticker'],
+            ['sticker_reward_item', 'update', 'Cập nhật vật phẩm quà sticker', 'Sửa vật phẩm đổi sticker'],
+            ['sticker_reward_item', 'delete', 'Xóa vật phẩm quà sticker', 'Xóa mềm vật phẩm đổi sticker'],
+            ['sticker_reward_item', 'adjust_stock', 'Chỉnh tồn kho vật phẩm', 'Điều chỉnh số lượng còn lại trong kho'],
+            ['sticker_reward_rule', 'view', 'Xem rule bó quà', 'Xem cấu hình 1 sticker ra vật phẩm nào'],
+            ['sticker_reward_rule', 'create', 'Tạo rule bó quà', 'Thêm cấu hình bó quà'],
+            ['sticker_reward_rule', 'update', 'Cập nhật rule bó quà', 'Sửa cấu hình bó quà'],
+            ['sticker_reward_rule', 'delete', 'Xóa rule bó quà', 'Xóa cấu hình bó quà'],
+            ['sticker_redemption', 'view', 'Xem đơn đổi sticker', 'Xem tất cả đơn đổi sticker vật lý'],
+            ['sticker_redemption', 'fulfill', 'Xử lý đơn đổi sticker', 'Xác nhận giao/đóng gói đơn đổi sticker'],
+            ['sticker_redemption', 'cancel', 'Hủy đơn đổi sticker', 'Hủy + hoàn sticker cho user'],
             // permission / role_permission
             ['permission', 'view', 'Xem quyền', 'Xem danh mục quyền'],
             ['permission', 'create', 'Tạo quyền', 'Thêm quyền mới'],
@@ -216,7 +230,8 @@ class PermissionSeeder extends Seeder
             'reward_catalog.view',
             'redemption.view_own', 'redemption.create', 'redemption.cancel',
             'content.read',
-            'sticker_set.view', 'sticker.view', 'sticker.obtain',
+            'sticker_set.view', 'sticker.view', 'sticker.obtain', 'sticker.redeem',
+            'sticker_reward_item.view', 'sticker_reward_rule.view',
         ];
 
         $staff = array_values(array_unique(array_merge($user, [
@@ -228,6 +243,8 @@ class PermissionSeeder extends Seeder
             'wallet.view',
             'redemption.view', 'redemption.fulfill',
             'content.view', 'content.create', 'content.update',
+            'sticker_reward_item.adjust_stock',
+            'sticker_redemption.view', 'sticker_redemption.fulfill', 'sticker_redemption.cancel',
         ])));
 
         $manager = array_values(array_unique(array_merge($staff, [
@@ -244,6 +261,8 @@ class PermissionSeeder extends Seeder
             'content.delete', 'content.approve',
             'sticker_set.create', 'sticker_set.update', 'sticker_set.delete',
             'sticker.create', 'sticker.update', 'sticker.delete',
+            'sticker_reward_item.create', 'sticker_reward_item.update', 'sticker_reward_item.delete',
+            'sticker_reward_rule.create', 'sticker_reward_rule.update', 'sticker_reward_rule.delete',
             'permission.view', 'permission.create', 'permission.update', 'permission.delete',
             'role_permission.view', 'role_permission.update',
         ])));
