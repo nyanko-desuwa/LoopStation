@@ -797,7 +797,7 @@ delivery: pending => shipping (bắt đầu giao) => fulfilled (đã giao tới 
 
 ### 4.17. PASSWORD_RESET_TOKENS
 
-**Mục đích:** Bảng chuẩn Laravel cho Password Broker — kênh đặt lại mật khẩu duy nhất (reset bằng link).
+**Mục đích:** Bảng chuẩn Laravel cho Password Broker - kênh đặt lại mật khẩu duy nhất (reset bằng link).
 
 User quên mật khẩu → nhập email → nhận link chứa token qua email → bấm link để đặt mật khẩu mới. Hệ thống không dùng OTP. Mỗi email chỉ giữ 1 token mới nhất (email là PK), token lưu dạng hash.
 
@@ -811,7 +811,7 @@ User quên mật khẩu → nhập email → nhận link chứa token qua email 
 
 - PRIMARY KEY (email)
 
-**Khóa ngoại:** Không có — dùng email làm khóa tự nhiên chuẩn Laravel.
+**Khóa ngoại:** Không có - dùng email làm khóa tự nhiên chuẩn Laravel.
 
 **Quy tắc nghiệp vụ:**
 
@@ -1379,7 +1379,7 @@ Ghi cả thành công lẫn thất bại, phục vụ audit và phát hiện bru
 
 **Mục đích:** Bảng chuẩn Laravel khi dùng session driver = database (web guard).
 
-Lưu trạng thái session HTTP: CSRF token, flash data, user đăng nhập qua cookie session. Khác USER_SESSIONS (kho refresh token JWT cho API đa thiết bị) — hai bảng phục vụ 2 tầng: SESSIONS cho web session state, USER_SESSIONS cho API token.
+Lưu trạng thái session HTTP: CSRF token, flash data, user đăng nhập qua cookie session. Khác USER_SESSIONS (kho refresh token JWT cho API đa thiết bị) - hai bảng phục vụ 2 tầng: SESSIONS cho web session state, USER_SESSIONS cho API token.
 
 | Cột | Kiểu | Mô tả |
 | --- | --- | --- |
@@ -1408,7 +1408,7 @@ Lưu trạng thái session HTTP: CSRF token, flash data, user đăng nhập qua 
 
 **Mục đích:** Danh mục vật phẩm vật lý dùng làm quà đổi sticker, thay cho việc hardcode "kẹo".
 
-manager CRUD toàn bộ: tạo vật phẩm với ảnh + tên + tồn kho. Không còn cố định chỉ có kẹo — có thể là sticker dán, kẹo, sữa, hay bất cứ thứ gì manager cấu hình.
+manager CRUD toàn bộ: tạo vật phẩm với ảnh + tên + tồn kho. Không còn cố định chỉ có kẹo - có thể là sticker dán, kẹo, sữa, hay bất cứ thứ gì manager cấu hình.
 
 | Cột | Kiểu | Mô tả |
 | --- | --- | --- |
@@ -1436,7 +1436,7 @@ manager CRUD toàn bộ: tạo vật phẩm với ảnh + tên + tồn kho. Khô
 
 ### 4.34. STICKER_REWARD_RULES
 
-**Mục đích:** Cấu hình bó quà — 1 lần đổi sticker X ra những vật phẩm nào, mỗi thứ bao nhiêu.
+**Mục đích:** Cấu hình bó quà - 1 lần đổi sticker X ra những vật phẩm nào, mỗi thứ bao nhiêu.
 
 Đây là nơi manager định nghĩa "1 sticker ảo đổi ra bao nhiêu vật phẩm" (VD x1 sticker dán, x2 kẹo, x3 sữa) mà không cần đổi schema hay hardcode.
 
@@ -1470,7 +1470,7 @@ manager CRUD toàn bộ: tạo vật phẩm với ảnh + tên + tồn kho. Khô
 
 ### 4.35. STICKER_REDEMPTION_ITEMS
 
-**Mục đích:** Snapshot đơn — chốt chính xác các vật phẩm + số lượng đã giao trong 1 lần đổi sticker.
+**Mục đích:** Snapshot đơn - chốt chính xác các vật phẩm + số lượng đã giao trong 1 lần đổi sticker.
 
 Giống cách REDEMPTIONS.points_spent chốt điểm, bảng này chốt vật phẩm tại thời điểm đổi. Sau này rule hay vật phẩm thay đổi cũng không ảnh hưởng lịch sử đã giao.
 
@@ -1959,7 +1959,7 @@ Các mục sau đã được chốt và triển khai vào schema:
 
 15. **Upload ảnh & Cấu hình manager (APP_SETTINGS):** Tất cả setting do manager cấu hình đều nằm trong bảng `APP_SETTINGS` dạng key-value (storage_base_path, upload_max_size, allowed_image_types...). Ảnh upload lên server, lưu path tương đối vào cột image_url/avatar_url/thumbnail_url trong DB, không lưu full URL. Khi render, hệ thống ghép path tương đối với giá trị storage_base_url từ APP_SETTINGS. EDUCATIONAL_CONTENTS.content là HTML (rich text), ảnh minh họa embed trực tiếp qua `<img src="...">`. Nếu manager đổi base URL, chỉ cần sửa 1 dòng trong APP_SETTINGS, không cần sửa bản ghi ảnh
 
-16. **Authentication + RBAC:** Thêm bảng session/token và bảng permission riêng. Refresh token sống 60 ngày, lưu hash trong USER_SESSIONS, access token là JWT ngắn hạn. Quyền truy cập backend phải check qua PERMISSIONS + ROLE_PERMISSIONS, không chỉ dựa vào USERS.role. Mỗi session đăng nhập đa thiết bị được lưu riêng và có thể revoke độc lập; login thành công/thất bại phải có LOGIN_LOGS. Bảng USERS dùng đúng tên cột chuẩn Laravel (`password`, `email_verified_at`, `remember_token`) thay vì `password_hash`, giúp Authenticatable contract và middleware Auth hoạt động mặc định. Bổ sung 2 bảng framework: PASSWORD_RESET_TOKENS (reset mật khẩu bằng link, Laravel Password Broker) và SESSIONS (web session driver = database) — song song với USER_SESSIONS (JWT). Hệ thống không dùng OTP; reset mật khẩu và xác minh email đều dùng link chuẩn Laravel.
+16. **Authentication + RBAC:** Thêm bảng session/token và bảng permission riêng. Refresh token sống 60 ngày, lưu hash trong USER_SESSIONS, access token là JWT ngắn hạn. Quyền truy cập backend phải check qua PERMISSIONS + ROLE_PERMISSIONS, không chỉ dựa vào USERS.role. Mỗi session đăng nhập đa thiết bị được lưu riêng và có thể revoke độc lập; login thành công/thất bại phải có LOGIN_LOGS. Bảng USERS dùng đúng tên cột chuẩn Laravel (`password`, `email_verified_at`, `remember_token`) thay vì `password_hash`, giúp Authenticatable contract và middleware Auth hoạt động mặc định. Bổ sung 2 bảng framework: PASSWORD_RESET_TOKENS (reset mật khẩu bằng link, Laravel Password Broker) và SESSIONS (web session driver = database) - song song với USER_SESSIONS (JWT). Hệ thống không dùng OTP; reset mật khẩu và xác minh email đều dùng link chuẩn Laravel.
 
 17. **Ship quà tận nhà (pickup/delivery):** Cả REDEMPTIONS (đổi quà bằng điểm) và STICKER_REDEMPTIONS (đổi sticker vật lý) đều cho user chọn `fulfillment_method` = pickup (nhận tại cơ sở) hoặc delivery (ship tận nhà). Giải quyết việc không ai tới cơ sở nhận kẹo/quà. Khi delivery: lưu recipient_name/recipient_phone/shipping_address/shipping_note, facility_id/staff_id để NULL, thêm trạng thái `shipping` vào vòng đời. Khi pickup: giữ luồng cũ (nhận tại facility, staff xác nhận)
 

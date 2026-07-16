@@ -2,7 +2,7 @@
 
 return [
     'email_verified' => 'Đã xác minh email thành công.',
-    'email_already_verified' => 'Email đã xác minh rồi.',
+    'email_already_verified' => 'Email đã được xác minh.',
     'password_reset_link_sent' => 'Đã gửi liên kết đặt lại mật khẩu.',
     'password_reset_success' => 'Đặt lại mật khẩu thành công.',
     'verification_link_sent' => 'Đã gửi lại email xác minh.',

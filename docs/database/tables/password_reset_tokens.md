@@ -2,7 +2,7 @@
 
 ## Vai trò
 
-Bảng chuẩn Laravel cho **Password Broker** — là **kênh đặt lại mật khẩu duy nhất** của hệ thống. Khi user quên mật khẩu, hệ thống gửi 1 **link** chứa token qua email; user bấm link để mở form đặt mật khẩu mới. Hệ thống **không dùng OTP** cho bất kỳ luồng auth nào (đã bỏ bảng `EMAIL_OTP_CODES`).
+Bảng chuẩn Laravel cho **Password Broker** - là **kênh đặt lại mật khẩu duy nhất** của hệ thống. Khi user quên mật khẩu, hệ thống gửi 1 **link** chứa token qua email; user bấm link để mở form đặt mật khẩu mới. Hệ thống **không dùng OTP** cho bất kỳ luồng auth nào (đã bỏ bảng `EMAIL_OTP_CODES`).
 
 Mỗi email chỉ giữ 1 token mới nhất (email là PK). Token lưu ở dạng hash, không plaintext.
 
@@ -16,7 +16,7 @@ Mỗi email chỉ giữ 1 token mới nhất (email là PK). Token lưu ở dạ
 
 ## Quan hệ khóa ngoại
 
-Không có FK — Laravel dùng `email` làm khóa tự nhiên, không link cứng với `USERS.id`. Cho phép khởi tạo reset ngay cả khi user đã bị xóa mềm mà email vẫn hợp lệ (Password Broker sẽ tự kiểm tra user tồn tại ở bước cuối).
+Không có FK - Laravel dùng `email` làm khóa tự nhiên, không link cứng với `USERS.id`. Cho phép khởi tạo reset ngay cả khi user đã bị xóa mềm mà email vẫn hợp lệ (Password Broker sẽ tự kiểm tra user tồn tại ở bước cuối).
 
 ## Index
 
@@ -71,5 +71,5 @@ Không có FK — Laravel dùng `email` làm khóa tự nhiên, không link cứ
 - **Hết hạn**: Laravel tự loại token quá `config('auth.passwords.users.expire')` (mặc định 60 phút). Có thể chạy `php artisan auth:clear-resets` định kỳ để dọn token rác, hoặc để Password Broker tự bỏ qua khi verify.
 - **Không có FK, không cột purpose**: bảng chỉ phục vụ đúng 1 việc là reset mật khẩu. Các luồng auth khác (đăng nhập, xác minh email) không đi qua bảng này:
   - **Đăng nhập**: chỉ bằng mật khẩu (`login_method = password`) hoặc walk-in auto-login (`login_method = walk_in_auto_login`).
-  - **Xác minh email**: dùng cơ chế `MustVerifyEmail` chuẩn Laravel (gửi link xác minh), set `USERS.email_verified_at` khi user bấm link — không dùng OTP.
+  - **Xác minh email**: dùng cơ chế `MustVerifyEmail` chuẩn Laravel (gửi link xác minh), set `USERS.email_verified_at` khi user bấm link - không dùng OTP.
 - **Bảo mật**: chỉ gửi token gốc qua email 1 lần. Lộ DB chỉ lộ hash, không tái tạo được link.

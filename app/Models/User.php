@@ -8,6 +8,8 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -54,6 +56,49 @@ class User extends Authenticatable implements MustVerifyEmail
             $user->email = $email;
             $user->email_canonical = EmailBox::normalize($email);
         });
+    }
+
+    public function facility(): BelongsTo
+    {
+        return $this->belongsTo(Facility::class);
+    }
+
+    public function wallet(): HasOne
+    {
+        return $this->hasOne(UserWallet::class);
+    }
+
+    /**
+     * Check quyền RBAC theo code (resource.action).
+     * Cache theo role trong PermissionService.
+     */
+    public function hasPermission(string $code): bool
+    {
+        return app(\App\Services\PermissionService::class)->userHas($this, $code);
+    }
+
+    /**
+     * @param  list<string>  $codes
+     */
+    public function hasAnyPermission(array $codes): bool
+    {
+        foreach ($codes as $code) {
+            if ($this->hasPermission($code)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function isManager(): bool
+    {
+        return $this->role === 'manager';
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->role === 'staff';
     }
 
     protected function casts(): array
