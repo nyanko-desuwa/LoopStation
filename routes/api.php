@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\RolePermissionController;
 use App\Http\Controllers\Api\RedemptionController;
 use App\Http\Controllers\Api\RewardCatalogController;
+use App\Http\Controllers\Api\StickerController;
+use App\Http\Controllers\Api\StickerSetController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WasteTypeController;
 use Illuminate\Support\Facades\Route;
@@ -268,7 +270,47 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('api.contents.reads.start');
     Route::post('contents/{content}/reads/{read}/complete', [ContentController::class, 'completeRead'])
         ->name('api.contents.reads.complete');
+
+    // Stickers - inventory + manager write sets/stickers.
+    Route::get('my/stickers', [StickerController::class, 'myInventory'])
+        ->name('api.my.stickers');
+    Route::get('my/sticker-logs', [StickerController::class, 'myObtainLogs'])
+        ->name('api.my.sticker-logs');
+    Route::get('users/{user}/stickers', [StickerController::class, 'userInventory'])
+        ->name('api.users.stickers');
+
+    Route::post('sticker-sets', [StickerSetController::class, 'store'])
+        ->middleware('permission:sticker_set.create')
+        ->name('api.sticker-sets.store');
+    Route::put('sticker-sets/{sticker_set}', [StickerSetController::class, 'update'])
+        ->middleware('permission:sticker_set.update')
+        ->name('api.sticker-sets.update');
+    Route::patch('sticker-sets/{sticker_set}', [StickerSetController::class, 'update'])
+        ->middleware('permission:sticker_set.update')
+        ->name('api.sticker-sets.patch');
+    Route::delete('sticker-sets/{sticker_set}', [StickerSetController::class, 'destroy'])
+        ->middleware('permission:sticker_set.delete')
+        ->name('api.sticker-sets.destroy');
+
+    Route::post('stickers', [StickerController::class, 'store'])
+        ->middleware('permission:sticker.create')
+        ->name('api.stickers.store');
+    Route::put('stickers/{sticker}', [StickerController::class, 'update'])
+        ->middleware('permission:sticker.update')
+        ->name('api.stickers.update');
+    Route::patch('stickers/{sticker}', [StickerController::class, 'update'])
+        ->middleware('permission:sticker.update')
+        ->name('api.stickers.patch');
+    Route::delete('stickers/{sticker}', [StickerController::class, 'destroy'])
+        ->middleware('permission:sticker.delete')
+        ->name('api.stickers.destroy');
 });
+
+// Sticker catalog public list/show (active only for guests/users).
+Route::get('sticker-sets', [StickerSetController::class, 'index'])->name('api.sticker-sets.index');
+Route::get('sticker-sets/{sticker_set}', [StickerSetController::class, 'show'])->name('api.sticker-sets.show');
+Route::get('stickers', [StickerController::class, 'index'])->name('api.stickers.index');
+Route::get('stickers/{sticker}', [StickerController::class, 'show'])->name('api.stickers.show');
 
 // Reward catalog public list/show (active only for guests/users).
 Route::get('rewards', [RewardCatalogController::class, 'index'])->name('api.rewards.index');

@@ -7,6 +7,7 @@ use App\Http\Requests\Content\StoreContentRequest;
 use App\Http\Requests\Content\UpdateContentRequest;
 use App\Http\Resources\ContentReadResource;
 use App\Http\Resources\EducationalContentResource;
+use App\Http\Resources\StickerResource;
 use App\Models\ContentRead;
 use App\Models\EducationalContent;
 use App\Services\ContentService;
@@ -125,6 +126,17 @@ class ContentController extends Controller
 
         $result = $this->contentService->completeRead($read, $request->user());
 
+        $drop = $result['sticker_drop'] ?? null;
+        $stickerPayload = null;
+        if (is_array($drop) && ($drop['sticker'] ?? null) !== null) {
+            $stickerPayload = [
+                'sticker' => new StickerResource($drop['sticker']),
+                'first_owned' => (bool) ($drop['first_owned'] ?? false),
+                'bonus_points' => (int) ($drop['bonus_points'] ?? 0),
+                'unlocked_content_id' => $drop['unlocked_content_id'] ?? null,
+            ];
+        }
+
         return response()->json([
             'message' => $result['rewarded']
                 ? __('contents.messages.read_rewarded')
@@ -133,6 +145,7 @@ class ContentController extends Controller
             'rewarded' => $result['rewarded'],
             'points_awarded' => $result['points_awarded'],
             'reason' => $result['reason'],
+            'sticker_drop' => $stickerPayload,
         ]);
     }
 }

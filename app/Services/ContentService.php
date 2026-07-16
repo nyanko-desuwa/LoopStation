@@ -13,8 +13,10 @@ use Illuminate\Validation\ValidationException;
 
 class ContentService
 {
-    public function __construct(private readonly WalletService $walletService)
-    {
+    public function __construct(
+        private readonly WalletService $walletService,
+        private readonly StickerService $stickerService,
+    ) {
     }
 
     /**
@@ -74,7 +76,7 @@ class ContentService
     /**
      * Staff/manager soạn bài mới (status = pending).
      *
-     * @param  array{title: string, content: string, thumbnail_url?: string|null, timer_seconds?: int, points_reward?: int}  $data
+     * @param  array{title: string, content: string, thumbnail_url?: string|null, timer_seconds?: int, points_reward?: int, sticker_set_id?: int|null}  $data
      */
     public function create(User $author, array $data): EducationalContent
     {
@@ -86,13 +88,14 @@ class ContentService
             'status' => EducationalContent::STATUS_PENDING,
             'timer_seconds' => $data['timer_seconds'] ?? 120,
             'points_reward' => $data['points_reward'] ?? 0,
-        ])->load(['author', 'approver']);
+            'sticker_set_id' => $data['sticker_set_id'] ?? null,
+        ])->load(['author', 'approver', 'stickerSet']);
     }
 
     /**
      * Cập nhật bài. Chỉ cho sửa khi chưa publish (pending/rejected).
      *
-     * @param  array{title?: string, content?: string, thumbnail_url?: string|null, timer_seconds?: int, points_reward?: int}  $data
+     * @param  array{title?: string, content?: string, thumbnail_url?: string|null, timer_seconds?: int, points_reward?: int, sticker_set_id?: int|null}  $data
      */
     public function update(EducationalContent $content, User $actor, array $data): EducationalContent
     {
@@ -109,11 +112,11 @@ class ContentService
         }
 
         $content->fill(collect($data)->only([
-            'title', 'content', 'thumbnail_url', 'timer_seconds', 'points_reward',
+            'title', 'content', 'thumbnail_url', 'timer_seconds', 'points_reward', 'sticker_set_id',
         ])->all());
         $content->save();
 
-        return $content->refresh()->load(['author', 'approver']);
+        return $content->refresh()->load(['author', 'approver', 'stickerSet']);
     }
 
     /**
@@ -180,9 +183,15 @@ class ContentService
     }
 
     /**
-     * Hoàn tất đọc: kiểm tra timer + quota, nếu đạt thì cộng điểm (1 TX, idempotent theo read).
+     * Hoàn tất đọc: kiểm tra timer + quota, nếu đạt thì cộng điểm + drop sticker (1 TX, idempotent theo read).
      *
-     * @return array{read: ContentRead, rewarded: bool, points_awarded: int, reason: string|null}
+     * @return array{
+     *   read: ContentRead,
+     *   rewarded: bool,
+     *   points_awarded: int,
+     *   reason: string|null,
+     *   sticker_drop: array{sticker: \App\Models\Sticker|null, first_owned: bool, bonus_points: int, unlocked_content_id: int|null}|null
+     * }
      */
     public function completeRead(ContentRead $read, User $user): array
     {
@@ -196,13 +205,14 @@ class ContentService
             // Khóa dòng đọc để tránh double-reward khi bấm hoàn tất nhiều lần.
             $locked = ContentRead::query()->whereKey($read->id)->lockForUpdate()->firstOrFail();
 
-            // Đã rewarded trước đó → trả nguyên trạng, không cộng lại.
+            // Đã rewarded trước đó → trả nguyên trạng, không cộng lại / không drop lại.
             if ($locked->rewarded) {
                 return [
                     'read' => $locked,
                     'rewarded' => true,
                     'points_awarded' => $content->points_reward,
                     'reason' => null,
+                    'sticker_drop' => null,
                 ];
             }
 
@@ -218,7 +228,11 @@ class ContentService
             $locked->completed_at = now();
 
             $reason = $this->quotaReason($user, $content, $locked);
-            if ($reason !== null || $content->points_reward <= 0) {
+            $hasPointReward = $content->points_reward > 0;
+            $hasStickerSet = $content->sticker_set_id !== null;
+
+            // Hết quota hoặc không có gì để thưởng (điểm / sticker) → chỉ lưu completed_at.
+            if ($reason !== null || (! $hasPointReward && ! $hasStickerSet)) {
                 $locked->save();
 
                 return [
@@ -226,25 +240,56 @@ class ContentService
                     'rewarded' => false,
                     'points_awarded' => 0,
                     'reason' => $reason ?? 'no_reward',
+                    'sticker_drop' => null,
+                ];
+            }
+
+            $pointsAwarded = 0;
+            if ($hasPointReward) {
+                $this->walletService->earn($user, $content->points_reward, [
+                    'source_type' => PointEarned::SOURCE_CONTENT_READ,
+                    'reference_id' => $locked->id,
+                    'description' => __('contents.messages.points_earned_description', [
+                        'title' => $content->title,
+                    ]),
+                ]);
+                $pointsAwarded = $content->points_reward;
+            }
+
+            // Drop sticker từ set gắn bài (nếu có). Cùng TX; only once vì rewarded flag.
+            $stickerDrop = $hasStickerSet
+                ? $this->stickerService->dropFromContent($user, $content)
+                : [
+                    'sticker' => null,
+                    'first_owned' => false,
+                    'bonus_points' => 0,
+                    'unlocked_content_id' => null,
+                ];
+
+            $stickerAwarded = ($stickerDrop['sticker'] ?? null) !== null;
+
+            // Set locked / pool rỗng + không có điểm → không đốt quota rewarded.
+            if ($pointsAwarded <= 0 && ! $stickerAwarded) {
+                $locked->save();
+
+                return [
+                    'read' => $locked->refresh(),
+                    'rewarded' => false,
+                    'points_awarded' => 0,
+                    'reason' => 'no_reward',
+                    'sticker_drop' => null,
                 ];
             }
 
             $locked->rewarded = true;
             $locked->save();
 
-            $this->walletService->earn($user, $content->points_reward, [
-                'source_type' => PointEarned::SOURCE_CONTENT_READ,
-                'reference_id' => $locked->id,
-                'description' => __('contents.messages.points_earned_description', [
-                    'title' => $content->title,
-                ]),
-            ]);
-
             return [
                 'read' => $locked->refresh(),
                 'rewarded' => true,
-                'points_awarded' => $content->points_reward,
+                'points_awarded' => $pointsAwarded,
                 'reason' => null,
+                'sticker_drop' => $stickerDrop,
             ];
         });
     }

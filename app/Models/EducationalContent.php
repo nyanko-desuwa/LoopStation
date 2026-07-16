@@ -65,6 +65,11 @@ class EducationalContent extends Model
         return $this->hasMany(ContentRead::class, 'content_id');
     }
 
+    public function stickerSet(): BelongsTo
+    {
+        return $this->belongsTo(StickerSet::class, 'sticker_set_id');
+    }
+
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_PUBLISHED);

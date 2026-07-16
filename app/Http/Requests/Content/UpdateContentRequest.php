@@ -30,6 +30,7 @@ class UpdateContentRequest extends FormRequest
             'thumbnail_url' => ['nullable', 'string', 'max:500'],
             'timer_seconds' => ['sometimes', 'integer', 'min:1', 'max:86400'],
             'points_reward' => ['sometimes', 'integer', 'min:0', 'max:1000000'],
+            'sticker_set_id' => ['nullable', 'integer', 'exists:sticker_sets,id'],
         ];
     }
 

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('status', 20)->default('pending'); // pending | published | rejected
             $table->integer('timer_seconds')->default(120); // đọc tối thiểu để nhận điểm.
             $table->integer('points_reward')->default(0);
-            // sticker_set_id: FK sang STICKER_SETS thêm khi domain sticker làm; giờ để cột trơn.
+            // sticker_set_id: FK gắn ở migration stickers (add_sticker_fks) sau khi sticker_sets tồn tại.
             $table->unsignedBigInteger('sticker_set_id')->nullable();
             $table->softDeletes();
             $table->timestamps();

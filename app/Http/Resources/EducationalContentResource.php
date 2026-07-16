@@ -29,6 +29,11 @@ class EducationalContentResource extends JsonResource
             'timer_seconds' => $this->timer_seconds,
             'points_reward' => $this->points_reward,
             'sticker_set_id' => $this->sticker_set_id,
+            'sticker_set' => $this->whenLoaded('stickerSet', fn () => $this->stickerSet ? [
+                'id' => $this->stickerSet->id,
+                'name' => $this->stickerSet->name,
+                'status' => $this->stickerSet->status,
+            ] : null),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

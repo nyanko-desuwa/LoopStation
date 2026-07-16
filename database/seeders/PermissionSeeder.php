@@ -72,8 +72,8 @@ class PermissionSeeder extends Seeder
      */
     private function catalog(): array
     {
-        // Catalog seed: Auth + Facilities + RBAC + Catalogs + Handover + Events + Wallets + Redemptions + Contents.
-        // Domain sau (sticker, minigame, ...) bổ sung khi triển khai.
+        // Catalog seed: Auth + Facilities + RBAC + Catalogs + Handover + Events + Wallets + Redemptions + Contents + Stickers.
+        // Domain sau (sticker redeem, minigame, ...) bổ sung khi triển khai.
         $items = [
             // auth
             ['auth', 'login', 'Đăng nhập', 'Đăng nhập hệ thống'],
@@ -164,6 +164,16 @@ class PermissionSeeder extends Seeder
             ['content', 'delete', 'Xóa bài học', 'Xóa mềm bài học'],
             ['content', 'approve', 'Duyệt bài học', 'Manager duyệt/từ chối bài'],
             ['content', 'read', 'Đọc bài học', 'User bắt đầu/hoàn tất đọc bài'],
+            // sticker sets / stickers (core inventory + drop; redeem vật lý phase sau)
+            ['sticker_set', 'view', 'Xem bộ sticker', 'Xem danh sách bộ sticker'],
+            ['sticker_set', 'create', 'Tạo bộ sticker', 'Thêm bộ sticker mới'],
+            ['sticker_set', 'update', 'Cập nhật bộ sticker', 'Sửa bộ sticker'],
+            ['sticker_set', 'delete', 'Xóa bộ sticker', 'Xóa mềm bộ sticker'],
+            ['sticker', 'view', 'Xem sticker', 'Xem catalog + inventory user khác'],
+            ['sticker', 'create', 'Tạo sticker', 'Thêm sticker vào bộ'],
+            ['sticker', 'update', 'Cập nhật sticker', 'Sửa sticker'],
+            ['sticker', 'delete', 'Xóa sticker', 'Xóa mềm sticker'],
+            ['sticker', 'obtain', 'Nhận sticker', 'Nhận sticker từ drop (user)'],
             // permission / role_permission
             ['permission', 'view', 'Xem quyền', 'Xem danh mục quyền'],
             ['permission', 'create', 'Tạo quyền', 'Thêm quyền mới'],
@@ -206,6 +216,7 @@ class PermissionSeeder extends Seeder
             'reward_catalog.view',
             'redemption.view_own', 'redemption.create', 'redemption.cancel',
             'content.read',
+            'sticker_set.view', 'sticker.view', 'sticker.obtain',
         ];
 
         $staff = array_values(array_unique(array_merge($user, [
@@ -231,6 +242,8 @@ class PermissionSeeder extends Seeder
             'points.adjust',
             'reward_catalog.create', 'reward_catalog.update', 'reward_catalog.delete',
             'content.delete', 'content.approve',
+            'sticker_set.create', 'sticker_set.update', 'sticker_set.delete',
+            'sticker.create', 'sticker.update', 'sticker.delete',
             'permission.view', 'permission.create', 'permission.update', 'permission.delete',
             'role_permission.view', 'role_permission.update',
         ])));
