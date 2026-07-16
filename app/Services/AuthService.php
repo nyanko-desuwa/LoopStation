@@ -29,6 +29,9 @@ class AuthService
             'email_verified_at' => null,
         ]);
 
+        // Tạo ví điểm xanh 1-1 ngay khi đăng ký (kể cả walk-in sau này).
+        app(WalletService::class)->ensureWallet($user);
+
         event(new Registered($user));
 
         return $user;

@@ -72,8 +72,8 @@ class PermissionSeeder extends Seeder
      */
     private function catalog(): array
     {
-        // Tập tối thiểu: Auth + Facilities + RBAC + Catalogs + Handover.
-        // Domain sau (event, ...) bổ sung khi triển khai.
+        // Catalog seed: Auth + Facilities + RBAC + Catalogs + Handover + Events + Wallets + Redemptions + Contents + Stickers.
+        // Domain sau (sticker redeem, minigame, ...) bổ sung khi triển khai.
         $items = [
             // auth
             ['auth', 'login', 'Đăng nhập', 'Đăng nhập hệ thống'],
@@ -142,6 +142,38 @@ class PermissionSeeder extends Seeder
             ['event_registration', 'check_in', 'Check-in đăng ký', 'Staff check-in giúp'],
             ['event_registration', 'mark_absent', 'Đánh dấu vắng mặt', 'Đánh dấu absent'],
             ['event_registration', 'view_own', 'Xem đăng ký của tôi', 'Xem đăng ký của chính mình'],
+            // wallet / points
+            ['wallet', 'view', 'Xem ví', 'Xem ví điểm của user'],
+            ['wallet', 'view_own', 'Xem ví của tôi', 'Xem ví của chính mình'],
+            ['points', 'view_own_history', 'Xem lịch sử điểm của tôi', 'Xem giao dịch điểm của chính mình'],
+            ['points', 'adjust', 'Điều chỉnh điểm', 'Điều chỉnh cộng/trừ điểm'],
+            // reward catalog / redemptions
+            ['reward_catalog', 'view', 'Xem danh mục quà', 'Xem danh mục quà đổi điểm'],
+            ['reward_catalog', 'create', 'Tạo quà', 'Thêm quà vào danh mục'],
+            ['reward_catalog', 'update', 'Cập nhật quà', 'Sửa quà đổi'],
+            ['reward_catalog', 'delete', 'Xóa quà', 'Xóa mềm quà'],
+            ['redemption', 'view', 'Xem đổi quà', 'Xem tất cả đơn đổi quà'],
+            ['redemption', 'view_own', 'Xem đổi quà của tôi', 'Xem đơn đổi quà của chính mình'],
+            ['redemption', 'create', 'Tạo đổi quà', 'Đổi quà bằng điểm'],
+            ['redemption', 'cancel', 'Hủy đổi quà', 'Hủy đổi quà'],
+            ['redemption', 'fulfill', 'Xác nhận giao quà', 'Xác nhận đã giao quà'],
+            // educational content
+            ['content', 'view', 'Xem bài học (full)', 'Xem tất cả bài học kể cả pending'],
+            ['content', 'create', 'Tạo bài học', 'Staff/manager soạn bài học'],
+            ['content', 'update', 'Cập nhật bài học', 'Sửa bài học chưa publish'],
+            ['content', 'delete', 'Xóa bài học', 'Xóa mềm bài học'],
+            ['content', 'approve', 'Duyệt bài học', 'Manager duyệt/từ chối bài'],
+            ['content', 'read', 'Đọc bài học', 'User bắt đầu/hoàn tất đọc bài'],
+            // sticker sets / stickers (core inventory + drop; redeem vật lý phase sau)
+            ['sticker_set', 'view', 'Xem bộ sticker', 'Xem danh sách bộ sticker'],
+            ['sticker_set', 'create', 'Tạo bộ sticker', 'Thêm bộ sticker mới'],
+            ['sticker_set', 'update', 'Cập nhật bộ sticker', 'Sửa bộ sticker'],
+            ['sticker_set', 'delete', 'Xóa bộ sticker', 'Xóa mềm bộ sticker'],
+            ['sticker', 'view', 'Xem sticker', 'Xem catalog + inventory user khác'],
+            ['sticker', 'create', 'Tạo sticker', 'Thêm sticker vào bộ'],
+            ['sticker', 'update', 'Cập nhật sticker', 'Sửa sticker'],
+            ['sticker', 'delete', 'Xóa sticker', 'Xóa mềm sticker'],
+            ['sticker', 'obtain', 'Nhận sticker', 'Nhận sticker từ drop (user)'],
             // permission / role_permission
             ['permission', 'view', 'Xem quyền', 'Xem danh mục quyền'],
             ['permission', 'create', 'Tạo quyền', 'Thêm quyền mới'],
@@ -180,6 +212,11 @@ class PermissionSeeder extends Seeder
             'handover.reschedule', 'handover.view_logs',
             'event.view',
             'event_registration.create', 'event_registration.cancel', 'event_registration.view_own',
+            'wallet.view_own', 'points.view_own_history',
+            'reward_catalog.view',
+            'redemption.view_own', 'redemption.create', 'redemption.cancel',
+            'content.read',
+            'sticker_set.view', 'sticker.view', 'sticker.obtain',
         ];
 
         $staff = array_values(array_unique(array_merge($user, [
@@ -188,6 +225,9 @@ class PermissionSeeder extends Seeder
             'handover.complete', 'handover.record_weight',
             'event_registration.view', 'event_registration.check_in', 'event_registration.mark_absent',
             'event.check_in_user', 'event.unlock_minigame',
+            'wallet.view',
+            'redemption.view', 'redemption.fulfill',
+            'content.view', 'content.create', 'content.update',
         ])));
 
         $manager = array_values(array_unique(array_merge($staff, [
@@ -199,6 +239,11 @@ class PermissionSeeder extends Seeder
             'waste_type.create', 'waste_type.update', 'waste_type.delete',
             'event.create', 'event.update', 'event.delete', 'event.publish', 'event.end',
             'event.assign_staff', 'event.manage_rewards',
+            'points.adjust',
+            'reward_catalog.create', 'reward_catalog.update', 'reward_catalog.delete',
+            'content.delete', 'content.approve',
+            'sticker_set.create', 'sticker_set.update', 'sticker_set.delete',
+            'sticker.create', 'sticker.update', 'sticker.delete',
             'permission.view', 'permission.create', 'permission.update', 'permission.delete',
             'role_permission.view', 'role_permission.update',
         ])));
