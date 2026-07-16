@@ -11,6 +11,7 @@ return [
         'rescheduled' => 'Handover rescheduled successfully.',
         'weight_recorded' => 'Weight recorded successfully.',
         'completed' => 'Handover request completed successfully.',
+        'points_earned_description' => 'Points from handover request #:id',
         'facility_locked' => 'The facility is locked; cannot create a request.',
         'not_editable' => 'Only pending requests can be edited.',
         'already_closed' => 'The request is already closed.',

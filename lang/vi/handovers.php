@@ -11,6 +11,7 @@ return [
         'rescheduled' => 'Dời lịch đơn thành công.',
         'weight_recorded' => 'Ghi nhận cân thực tế thành công.',
         'completed' => 'Hoàn tất đơn chuyển giao thành công.',
+        'points_earned_description' => 'Điểm từ đơn chuyển giao #:id',
         'facility_locked' => 'Cơ sở đang bị khóa, không thể tạo đơn.',
         'not_editable' => 'Chỉ được sửa đơn đang ở trạng thái chờ duyệt.',
         'already_closed' => 'Đơn đã đóng, không thể thao tác tiếp.',
