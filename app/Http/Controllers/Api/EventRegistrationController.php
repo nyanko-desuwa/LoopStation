@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Event\RegisterEventRequest;
 use App\Http\Resources\EventRegistrationResource;
+use App\Http\Resources\EventRewardResource;
 use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Services\EventRegistrationService;
@@ -136,6 +137,28 @@ class EventRegistrationController extends Controller
         return response()->json([
             'message' => __('events.messages.minigame_unlocked'),
             'registration' => new EventRegistrationResource($registration),
+        ]);
+    }
+
+    /**
+     * User chơi minigame đã unlock → cộng điểm + random quà vật lý (event_minigame).
+     */
+    public function playMinigame(Request $request, Event $event, EventRegistration $registration): JsonResponse
+    {
+        if ((int) $registration->event_id !== (int) $event->id) {
+            abort(404);
+        }
+
+        $result = $this->registrationService->playMinigame($registration, $request->user());
+
+        return response()->json([
+            'message' => $result['already_played']
+                ? __('events.messages.minigame_already_played')
+                : __('events.messages.minigame_played'),
+            'registration' => new EventRegistrationResource($result['registration']),
+            'points_awarded' => $result['points_awarded'],
+            'reward' => $result['reward'] ? new EventRewardResource($result['reward']) : null,
+            'already_played' => $result['already_played'],
         ]);
     }
 }

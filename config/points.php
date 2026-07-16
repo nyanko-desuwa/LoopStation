@@ -46,4 +46,19 @@ return [
         'per_content_cap' => (int) env('CONTENT_PER_CONTENT_REWARD_CAP', 2),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Event minigame rewards
+    |--------------------------------------------------------------------------
+    |
+    | When a checked-in user with an unlocked minigame plays, they earn a flat
+    | number of points (source event_minigame) once, and may also win one of
+    | the event's physical EVENT_REWARDS when stock remains.
+    |
+    */
+
+    'minigame' => [
+        'play_points' => (int) env('MINIGAME_PLAY_POINTS', 20),
+    ],
+
 ];

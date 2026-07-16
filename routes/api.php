@@ -17,6 +17,9 @@ use App\Http\Controllers\Api\RolePermissionController;
 use App\Http\Controllers\Api\RedemptionController;
 use App\Http\Controllers\Api\RewardCatalogController;
 use App\Http\Controllers\Api\StickerController;
+use App\Http\Controllers\Api\StickerRedemptionController;
+use App\Http\Controllers\Api\StickerRewardItemController;
+use App\Http\Controllers\Api\StickerRewardRuleController;
 use App\Http\Controllers\Api\StickerSetController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WasteTypeController;
@@ -206,6 +209,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('events/{event}/registrations/{registration}/unlock-minigame', [EventRegistrationController::class, 'unlockMinigame'])
         ->middleware('permission:event.unlock_minigame')
         ->name('api.events.registrations.unlock-minigame');
+    // User chơi minigame đã unlock (cộng điểm + random EVENT_REWARDS).
+    Route::post('events/{event}/registrations/{registration}/play-minigame', [EventRegistrationController::class, 'playMinigame'])
+        ->name('api.events.registrations.play-minigame');
 
     // Wallet / points - own wallet + manager adjust.
     Route::get('wallet', [WalletController::class, 'me'])->name('api.wallet.me');
@@ -304,6 +310,56 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('stickers/{sticker}', [StickerController::class, 'destroy'])
         ->middleware('permission:sticker.delete')
         ->name('api.stickers.destroy');
+
+    // Sticker reward items (vật phẩm quà) - manager CRUD + adjust stock.
+    Route::post('sticker-reward-items', [StickerRewardItemController::class, 'store'])
+        ->middleware('permission:sticker_reward_item.create')
+        ->name('api.sticker-reward-items.store');
+    Route::put('sticker-reward-items/{sticker_reward_item}', [StickerRewardItemController::class, 'update'])
+        ->middleware('permission:sticker_reward_item.update')
+        ->name('api.sticker-reward-items.update');
+    Route::patch('sticker-reward-items/{sticker_reward_item}', [StickerRewardItemController::class, 'update'])
+        ->middleware('permission:sticker_reward_item.update')
+        ->name('api.sticker-reward-items.patch');
+    Route::delete('sticker-reward-items/{sticker_reward_item}', [StickerRewardItemController::class, 'destroy'])
+        ->middleware('permission:sticker_reward_item.delete')
+        ->name('api.sticker-reward-items.destroy');
+    Route::post('sticker-reward-items/{sticker_reward_item}/stock', [StickerRewardItemController::class, 'adjustStock'])
+        ->middleware('permission:sticker_reward_item.adjust_stock')
+        ->name('api.sticker-reward-items.stock');
+
+    // Sticker reward rules (bó quà theo sticker) - manager.
+    Route::get('stickers/{sticker}/reward-rules', [StickerRewardRuleController::class, 'index'])
+        ->name('api.stickers.reward-rules.index');
+    Route::post('stickers/{sticker}/reward-rules', [StickerRewardRuleController::class, 'store'])
+        ->middleware('permission:sticker_reward_rule.create')
+        ->name('api.stickers.reward-rules.store');
+    Route::put('sticker-reward-rules/{rule}', [StickerRewardRuleController::class, 'update'])
+        ->middleware('permission:sticker_reward_rule.update')
+        ->name('api.sticker-reward-rules.update');
+    Route::patch('sticker-reward-rules/{rule}', [StickerRewardRuleController::class, 'update'])
+        ->middleware('permission:sticker_reward_rule.update')
+        ->name('api.sticker-reward-rules.patch');
+    Route::delete('sticker-reward-rules/{rule}', [StickerRewardRuleController::class, 'destroy'])
+        ->middleware('permission:sticker_reward_rule.delete')
+        ->name('api.sticker-reward-rules.destroy');
+
+    // Sticker redemptions (đổi sticker vật lý).
+    Route::get('sticker-redemptions', [StickerRedemptionController::class, 'index'])
+        ->name('api.sticker-redemptions.index');
+    Route::post('sticker-redemptions', [StickerRedemptionController::class, 'store'])
+        ->middleware('permission:sticker.redeem')
+        ->name('api.sticker-redemptions.store');
+    Route::get('sticker-redemptions/{sticker_redemption}', [StickerRedemptionController::class, 'show'])
+        ->name('api.sticker-redemptions.show');
+    Route::post('sticker-redemptions/{sticker_redemption}/cancel', [StickerRedemptionController::class, 'cancel'])
+        ->name('api.sticker-redemptions.cancel');
+    Route::post('sticker-redemptions/{sticker_redemption}/shipping', [StickerRedemptionController::class, 'markShipping'])
+        ->middleware('permission:sticker_redemption.fulfill')
+        ->name('api.sticker-redemptions.shipping');
+    Route::post('sticker-redemptions/{sticker_redemption}/fulfill', [StickerRedemptionController::class, 'fulfill'])
+        ->middleware('permission:sticker_redemption.fulfill')
+        ->name('api.sticker-redemptions.fulfill');
 });
 
 // Sticker catalog public list/show (active only for guests/users).

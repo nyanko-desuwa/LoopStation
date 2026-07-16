@@ -48,4 +48,18 @@ class EventRegistrationFactory extends Factory
             'checked_in_at' => now(),
         ]);
     }
+
+    public function minigameUnlocked(): static
+    {
+        return $this->state(fn () => [
+            'minigame_status' => EventRegistration::MINIGAME_UNLOCKED,
+        ]);
+    }
+
+    public function minigamePlayed(): static
+    {
+        return $this->state(fn () => [
+            'minigame_status' => EventRegistration::MINIGAME_PLAYED,
+        ]);
+    }
 }
