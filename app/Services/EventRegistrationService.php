@@ -4,12 +4,19 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\EventRegistration;
+use App\Models\EventReward;
+use App\Models\PointEarned;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class EventRegistrationService
 {
+    public function __construct(private readonly WalletService $walletService)
+    {
+    }
+
     /**
      * @param  array{status?: string|null, per_page?: int}  $filters
      */
@@ -162,6 +169,115 @@ class EventRegistrationService
         ]);
 
         return $registration->refresh();
+    }
+
+    /**
+     * User chơi minigame (1 lần/registration): cộng điểm event_minigame + random EVENT_REWARDS còn stock.
+     * Idempotent: nếu đã played thì trả trạng thái cũ, không cộng/trừ lại.
+     *
+     * @return array{
+     *   registration: EventRegistration,
+     *   points_awarded: int,
+     *   reward: EventReward|null,
+     *   already_played: bool
+     * }
+     */
+    public function playMinigame(EventRegistration $registration, User $user): array
+    {
+        if ($registration->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $event = $registration->event()->firstOrFail();
+
+        if ($event->isTerminal()) {
+            throw ValidationException::withMessages([
+                'event' => __('events.messages.already_closed'),
+            ]);
+        }
+
+        return DB::transaction(function () use ($registration, $user, $event): array {
+            // Khóa registration để tránh double-play race.
+            $locked = EventRegistration::query()->whereKey($registration->id)->lockForUpdate()->firstOrFail();
+
+            // Đã chơi → trả nguyên trạng (idempotent).
+            if ($locked->minigame_status === EventRegistration::MINIGAME_PLAYED) {
+                $priorPoints = PointEarned::query()
+                    ->where('source_type', PointEarned::SOURCE_EVENT_MINIGAME)
+                    ->where('reference_id', $locked->id)
+                    ->value('points');
+
+                return [
+                    'registration' => $locked->load(['user', 'event']),
+                    'points_awarded' => (int) ($priorPoints ?? 0),
+                    'reward' => null,
+                    'already_played' => true,
+                ];
+            }
+
+            if ($locked->minigame_status !== EventRegistration::MINIGAME_UNLOCKED) {
+                throw ValidationException::withMessages([
+                    'registration' => __('events.messages.minigame_not_unlocked'),
+                ]);
+            }
+
+            // Nên đã check-in trước khi chơi tại sự kiện.
+            if (! $locked->isCheckedIn()) {
+                throw ValidationException::withMessages([
+                    'registration' => __('events.messages.minigame_requires_check_in'),
+                ]);
+            }
+
+            $points = max(0, (int) config('points.minigame.play_points', 20));
+            $pointsAwarded = 0;
+
+            if ($points > 0) {
+                $this->walletService->earn($user, $points, [
+                    'source_type' => PointEarned::SOURCE_EVENT_MINIGAME,
+                    'reference_id' => $locked->id,
+                    'description' => __('events.messages.minigame_points_description', [
+                        'title' => $event->title,
+                    ]),
+                ]);
+                $pointsAwarded = $points;
+            }
+
+            // Random 1 quà vật lý còn remaining > 0 (nếu hết quà vẫn chơi được, chỉ nhận điểm).
+            $wonReward = $this->drawEventReward($event->id);
+
+            $locked->update([
+                'minigame_status' => EventRegistration::MINIGAME_PLAYED,
+            ]);
+
+            return [
+                'registration' => $locked->refresh()->load(['user', 'event']),
+                'points_awarded' => $pointsAwarded,
+                'reward' => $wonReward,
+                'already_played' => false,
+            ];
+        });
+    }
+
+    /**
+     * Weighted-equal random trong pool remaining > 0; trừ remaining trong cùng TX.
+     */
+    private function drawEventReward(int $eventId): ?EventReward
+    {
+        $pool = EventReward::query()
+            ->where('event_id', $eventId)
+            ->where('remaining', '>', 0)
+            ->lockForUpdate()
+            ->get();
+
+        if ($pool->isEmpty()) {
+            return null;
+        }
+
+        /** @var EventReward $picked */
+        $picked = $pool->random();
+        $picked->decrement('remaining');
+
+        return $picked->refresh();
     }
 
     public function cancelOwn(EventRegistration $registration, User $user): void

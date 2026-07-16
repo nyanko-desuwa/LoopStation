@@ -209,6 +209,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('events/{event}/registrations/{registration}/unlock-minigame', [EventRegistrationController::class, 'unlockMinigame'])
         ->middleware('permission:event.unlock_minigame')
         ->name('api.events.registrations.unlock-minigame');
+    // User chơi minigame đã unlock (cộng điểm + random EVENT_REWARDS).
+    Route::post('events/{event}/registrations/{registration}/play-minigame', [EventRegistrationController::class, 'playMinigame'])
+        ->name('api.events.registrations.play-minigame');
 
     // Wallet / points - own wallet + manager adjust.
     Route::get('wallet', [WalletController::class, 'me'])->name('api.wallet.me');

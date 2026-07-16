@@ -4,7 +4,9 @@ use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\EventReward;
 use App\Models\Facility;
+use App\Models\PointEarned;
 use App\Models\User;
+use App\Services\WalletService;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -225,6 +227,148 @@ it('staff mở khóa minigame', function () {
     $this->postJson("/api/events/{$event->id}/registrations/{$registration->id}/unlock-minigame")
         ->assertOk()
         ->assertJsonPath('registration.minigame_status', 'unlocked');
+});
+
+it('user chơi minigame → nhận điểm + random quà', function () {
+    $user = User::factory()->create();
+    app(WalletService::class)->ensureWallet($user);
+
+    $event = Event::factory()->active()->create(['title' => 'Minigame Day']);
+    $registration = EventRegistration::factory()
+        ->forEvent($event)
+        ->forUser($user)
+        ->attended()
+        ->minigameUnlocked()
+        ->create();
+
+    $reward = EventReward::factory()->forEvent($event)->create([
+        'name' => 'Bình nước',
+        'quantity' => 5,
+        'remaining' => 5,
+    ]);
+
+    config(['points.minigame.play_points' => 20]);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/events/{$event->id}/registrations/{$registration->id}/play-minigame")
+        ->assertOk()
+        ->assertJsonPath('already_played', false)
+        ->assertJsonPath('points_awarded', 20)
+        ->assertJsonPath('registration.minigame_status', 'played')
+        ->assertJsonPath('reward.id', $reward->id)
+        ->assertJsonPath('message', __('events.messages.minigame_played'));
+
+    expect(app(WalletService::class)->getWallet($user)->fresh()->balance)->toBe(20);
+    expect($reward->fresh()->remaining)->toBe(4);
+
+    $this->assertDatabaseHas('point_earned', [
+        'source_type' => PointEarned::SOURCE_EVENT_MINIGAME,
+        'reference_id' => $registration->id,
+        'points' => 20,
+    ]);
+});
+
+it('chơi minigame lần 2 → idempotent, không cộng điểm lại', function () {
+    $user = User::factory()->create();
+    app(WalletService::class)->ensureWallet($user);
+
+    $event = Event::factory()->active()->create();
+    $registration = EventRegistration::factory()
+        ->forEvent($event)
+        ->forUser($user)
+        ->attended()
+        ->minigameUnlocked()
+        ->create();
+
+    EventReward::factory()->forEvent($event)->create(['remaining' => 3, 'quantity' => 3]);
+    config(['points.minigame.play_points' => 15]);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/events/{$event->id}/registrations/{$registration->id}/play-minigame")->assertOk();
+    $this->postJson("/api/events/{$event->id}/registrations/{$registration->id}/play-minigame")
+        ->assertOk()
+        ->assertJsonPath('already_played', true)
+        ->assertJsonPath('points_awarded', 15)
+        ->assertJsonPath('reward', null)
+        ->assertJsonPath('message', __('events.messages.minigame_already_played'));
+
+    expect(PointEarned::query()->where('source_type', PointEarned::SOURCE_EVENT_MINIGAME)->count())->toBe(1);
+    expect(app(WalletService::class)->getWallet($user)->fresh()->balance)->toBe(15);
+});
+
+it('chưa unlock thì không chơi được minigame', function () {
+    $user = User::factory()->create();
+    $event = Event::factory()->active()->create();
+    $registration = EventRegistration::factory()
+        ->forEvent($event)
+        ->forUser($user)
+        ->attended()
+        ->create(); // not_eligible
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/events/{$event->id}/registrations/{$registration->id}/play-minigame")
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['registration']);
+});
+
+it('chưa check-in thì không chơi được minigame', function () {
+    $user = User::factory()->create();
+    $event = Event::factory()->active()->create();
+    $registration = EventRegistration::factory()
+        ->forEvent($event)
+        ->forUser($user)
+        ->minigameUnlocked()
+        ->create(); // no checked_in_at
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/events/{$event->id}/registrations/{$registration->id}/play-minigame")
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['registration']);
+});
+
+it('hết quà vẫn chơi được minigame (chỉ nhận điểm)', function () {
+    $user = User::factory()->create();
+    app(WalletService::class)->ensureWallet($user);
+
+    $event = Event::factory()->active()->create();
+    $registration = EventRegistration::factory()
+        ->forEvent($event)
+        ->forUser($user)
+        ->attended()
+        ->minigameUnlocked()
+        ->create();
+
+    EventReward::factory()->forEvent($event)->outOfStock()->create(['quantity' => 5]);
+    config(['points.minigame.play_points' => 10]);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/events/{$event->id}/registrations/{$registration->id}/play-minigame")
+        ->assertOk()
+        ->assertJsonPath('points_awarded', 10)
+        ->assertJsonPath('reward', null)
+        ->assertJsonPath('registration.minigame_status', 'played');
+});
+
+it('user khác không chơi minigame hộ', function () {
+    $owner = User::factory()->create();
+    $other = User::factory()->create();
+    $event = Event::factory()->active()->create();
+    $registration = EventRegistration::factory()
+        ->forEvent($event)
+        ->forUser($owner)
+        ->attended()
+        ->minigameUnlocked()
+        ->create();
+
+    Sanctum::actingAs($other);
+
+    $this->postJson("/api/events/{$event->id}/registrations/{$registration->id}/play-minigame")
+        ->assertForbidden();
 });
 
 it('user hủy đăng ký khi chưa check-in', function () {
