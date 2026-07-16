@@ -72,8 +72,8 @@ class PermissionSeeder extends Seeder
      */
     private function catalog(): array
     {
-        // Tập tối thiểu: Auth + Facilities + RBAC + Catalogs + Handover.
-        // Domain sau (event, ...) bổ sung khi triển khai.
+        // Catalog seed: Auth + Facilities + RBAC + Catalogs + Handover + Events + Wallets + Redemptions + Contents.
+        // Domain sau (sticker, minigame, ...) bổ sung khi triển khai.
         $items = [
             // auth
             ['auth', 'login', 'Đăng nhập', 'Đăng nhập hệ thống'],
@@ -157,6 +157,13 @@ class PermissionSeeder extends Seeder
             ['redemption', 'create', 'Tạo đổi quà', 'Đổi quà bằng điểm'],
             ['redemption', 'cancel', 'Hủy đổi quà', 'Hủy đổi quà'],
             ['redemption', 'fulfill', 'Xác nhận giao quà', 'Xác nhận đã giao quà'],
+            // educational content
+            ['content', 'view', 'Xem bài học (full)', 'Xem tất cả bài học kể cả pending'],
+            ['content', 'create', 'Tạo bài học', 'Staff/manager soạn bài học'],
+            ['content', 'update', 'Cập nhật bài học', 'Sửa bài học chưa publish'],
+            ['content', 'delete', 'Xóa bài học', 'Xóa mềm bài học'],
+            ['content', 'approve', 'Duyệt bài học', 'Manager duyệt/từ chối bài'],
+            ['content', 'read', 'Đọc bài học', 'User bắt đầu/hoàn tất đọc bài'],
             // permission / role_permission
             ['permission', 'view', 'Xem quyền', 'Xem danh mục quyền'],
             ['permission', 'create', 'Tạo quyền', 'Thêm quyền mới'],
@@ -198,6 +205,7 @@ class PermissionSeeder extends Seeder
             'wallet.view_own', 'points.view_own_history',
             'reward_catalog.view',
             'redemption.view_own', 'redemption.create', 'redemption.cancel',
+            'content.read',
         ];
 
         $staff = array_values(array_unique(array_merge($user, [
@@ -208,6 +216,7 @@ class PermissionSeeder extends Seeder
             'event.check_in_user', 'event.unlock_minigame',
             'wallet.view',
             'redemption.view', 'redemption.fulfill',
+            'content.view', 'content.create', 'content.update',
         ])));
 
         $manager = array_values(array_unique(array_merge($staff, [
@@ -221,6 +230,7 @@ class PermissionSeeder extends Seeder
             'event.assign_staff', 'event.manage_rewards',
             'points.adjust',
             'reward_catalog.create', 'reward_catalog.update', 'reward_catalog.delete',
+            'content.delete', 'content.approve',
             'permission.view', 'permission.create', 'permission.update', 'permission.delete',
             'role_permission.view', 'role_permission.update',
         ])));

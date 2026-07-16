@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\Api\Auth\MeController;
 use App\Http\Controllers\Api\Auth\PasswordResetController;
 use App\Http\Controllers\Api\Auth\RegisterController;
+use App\Http\Controllers\Api\ContentController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\EventRegistrationController;
 use App\Http\Controllers\Api\FacilityController;
@@ -245,6 +246,28 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('redemptions/{redemption}/fulfill', [RedemptionController::class, 'fulfill'])
         ->middleware('permission:redemption.fulfill')
         ->name('api.redemptions.fulfill');
+
+    // Educational contents - write/approve + start/complete read.
+    Route::post('contents', [ContentController::class, 'store'])
+        ->middleware('permission:content.create')
+        ->name('api.contents.store');
+    Route::put('contents/{content}', [ContentController::class, 'update'])
+        ->name('api.contents.update');
+    Route::patch('contents/{content}', [ContentController::class, 'update'])
+        ->name('api.contents.patch');
+    Route::delete('contents/{content}', [ContentController::class, 'destroy'])
+        ->middleware('permission:content.delete')
+        ->name('api.contents.destroy');
+    Route::post('contents/{content}/approve', [ContentController::class, 'approve'])
+        ->middleware('permission:content.approve')
+        ->name('api.contents.approve');
+    Route::post('contents/{content}/reject', [ContentController::class, 'reject'])
+        ->middleware('permission:content.approve')
+        ->name('api.contents.reject');
+    Route::post('contents/{content}/reads', [ContentController::class, 'startRead'])
+        ->name('api.contents.reads.start');
+    Route::post('contents/{content}/reads/{read}/complete', [ContentController::class, 'completeRead'])
+        ->name('api.contents.reads.complete');
 });
 
 // Reward catalog public list/show (active only for guests/users).
@@ -266,3 +289,7 @@ Route::get('waste-types', [WasteTypeController::class, 'index'])
     ->name('api.waste-types.index');
 Route::get('waste-types/{waste_type}', [WasteTypeController::class, 'show'])
     ->name('api.waste-types.show');
+
+// Educational contents - public list/show (published only for guests/users).
+Route::get('contents', [ContentController::class, 'index'])->name('api.contents.index');
+Route::get('contents/{content}', [ContentController::class, 'show'])->name('api.contents.show');

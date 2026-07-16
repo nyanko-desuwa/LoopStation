@@ -3,8 +3,10 @@
 use App\Models\Facility;
 use App\Models\HandoverRequest;
 use App\Models\MeasurementUnit;
+use App\Models\PointEarned;
 use App\Models\User;
 use App\Models\WasteType;
+use App\Services\WalletService;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -191,12 +193,17 @@ it('chặn gán staff khác cơ sở', function () {
         ->assertJsonValidationErrors(['staff_id']);
 });
 
-it('ghi cân và hoàn tất đơn', function () {
+it('ghi cân và hoàn tất đơn: cộng điểm theo kg × classification', function () {
     $staff = User::factory()->staff($this->facility)->create();
+    $user = User::factory()->create();
+    app(WalletService::class)->ensureWallet($user);
+
+    // classification cleaned → multiplier 1.0; 4.2 kg × 10 = 42
     $handover = HandoverRequest::factory()
+        ->forUser($user)
         ->atFacility($this->facility)
         ->approved($staff)
-        ->create();
+        ->create(['classification_type' => 'cleaned']);
 
     Sanctum::actingAs($staff);
 
@@ -210,7 +217,67 @@ it('ghi cân và hoàn tất đơn', function () {
 
     $this->postJson("/api/handovers/{$handover->id}/complete")
         ->assertOk()
-        ->assertJsonPath('handover.status', 'completed');
+        ->assertJsonPath('handover.status', 'completed')
+        ->assertJsonPath('points_awarded', 42);
+
+    expect(app(WalletService::class)->getWallet($user)->fresh()->balance)->toBe(42);
+
+    $this->assertDatabaseHas('point_earned', [
+        'source_type' => PointEarned::SOURCE_HANDOVER,
+        'reference_id' => $handover->id,
+        'points' => 42,
+    ]);
+});
+
+it('hoàn tất đơn cleaned_flattened: nhân hệ số chất lượng', function () {
+    $staff = User::factory()->staff($this->facility)->create();
+    $user = User::factory()->create();
+    app(WalletService::class)->ensureWallet($user);
+
+    // 5 kg × 10 × 1.2 = 60
+    $handover = HandoverRequest::factory()
+        ->forUser($user)
+        ->atFacility($this->facility)
+        ->approved($staff)
+        ->create(['classification_type' => 'cleaned_flattened']);
+
+    Sanctum::actingAs($staff);
+
+    $this->postJson("/api/handovers/{$handover->id}/weight-logs", [
+        'weight' => 5,
+        'unit_id' => $this->unit->id,
+    ])->assertCreated();
+
+    $this->postJson("/api/handovers/{$handover->id}/complete")
+        ->assertOk()
+        ->assertJsonPath('points_awarded', 60);
+
+    expect(app(WalletService::class)->getWallet($user)->fresh()->balance)->toBe(60);
+});
+
+it('hoàn tất đơn quy đổi gram sang kg khi tính điểm', function () {
+    $staff = User::factory()->staff($this->facility)->create();
+    $user = User::factory()->create();
+    app(WalletService::class)->ensureWallet($user);
+    $gram = MeasurementUnit::factory()->system()->weight()->create(['symbol' => 'g']);
+
+    // 2500 g = 2.5 kg × 10 × 1.0 = 25
+    $handover = HandoverRequest::factory()
+        ->forUser($user)
+        ->atFacility($this->facility)
+        ->approved($staff)
+        ->create(['classification_type' => 'cleaned']);
+
+    Sanctum::actingAs($staff);
+
+    $this->postJson("/api/handovers/{$handover->id}/weight-logs", [
+        'weight' => 2500,
+        'unit_id' => $gram->id,
+    ])->assertCreated();
+
+    $this->postJson("/api/handovers/{$handover->id}/complete")
+        ->assertOk()
+        ->assertJsonPath('points_awarded', 25);
 });
 
 it('chặn hoàn tất khi chưa có weight log', function () {

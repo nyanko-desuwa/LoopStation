@@ -144,11 +144,12 @@ class HandoverController extends Controller
             abort(403);
         }
 
-        $handover = $this->handoverService->complete($handover, $request->user());
+        $result = $this->handoverService->complete($handover, $request->user());
 
         return response()->json([
             'message' => __('handovers.messages.completed'),
-            'handover' => new HandoverRequestResource($handover),
+            'handover' => new HandoverRequestResource($result['handover']),
+            'points_awarded' => $result['points_awarded'],
         ]);
     }
 }
